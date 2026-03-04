@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg" data-sidebar-image="none">
+
+<head>
+
+    <meta charset="utf-8" />
+    <title>Scans & Targets | SecureLens</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="SecureLens - Vulnerability Scanner" name="description" />
+    <meta content="SecureLens" name="author" />
+
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="assets/images/favicon.ico">
+
+    <!-- Layout config Js -->
+    <script src="assets/js/layout.js"></script>
+    <!-- Bootstrap Css -->
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <!-- Icons Css -->
+    <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <!-- App Css-->
+    <link href="assets/css/app.min.css" rel="stylesheet" type="text/css" />
+    <!-- custom Css-->
+    <link href="assets/css/custom.min.css" rel="stylesheet" type="text/css" />
+
+    <style>
+        .card-animate {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card-animate:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- Begin page -->
+    <div id="layout-wrapper">
+
+        <header id="page-topbar">
+    <div class="layout-width">
+        <div class="navbar-header">
+            <div class="d-flex">
+                <!-- LOGO -->
+                <div class="navbar-brand-box horizontal-logo">
+                    <a href="dashboard.html" class="logo logo-dark">
+                        <span class="logo-sm">
+                            <img src="assets/images/logo-sm.png" alt="" height="22">
+                        </span>
+                        <span class="logo-lg">
+                            <img src="assets/images/logo-dark.png" alt="" height="17">
+                        </span>
+                    </a>
+
+                    <a href="dashboard.html" class="logo logo-light">
+                        <span class="logo-sm">
+                            <img src="assets/images/logo-sm.png" alt="" height="22">
+                        </span>
+                        <span class="logo-lg">
+                            <img src="assets/images/logo-light.png" alt="" height="17">
+                        </span>
+                    </a>
+                </div>
+
+                <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon">
+                    <span class="hamburger-icon">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </span>
+                </button>
+            </div>
+
+            <div class="d-flex align-items-center">
+                <div class="dropdown ms-sm-3 header-item topbar-user">
+                    <button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <span class="d-flex align-items-center">
+                            <span class="text-start ms-xl-2">
+                                <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">Admin</span>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <h6 class="dropdown-header">Welcome Admin!</h6>
+                        <a class="dropdown-item" href="#" onclick="logoutUser()"><i class="mdi mdi-logout text-muted fs-16 align-middle me-1"></i> <span class="align-middle">Logout</span></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+        <div class="app-menu navbar-menu">
+            <div class="navbar-brand-box">
+                <a href="dashboard.html" class="logo logo-dark">
+                    <span class="logo-sm">
+                        <img src="assets/images/logo-sm.png" alt="" height="22">
+                    </span>
+                    <span class="logo-lg">
+                        <img src="assets/images/logo-dark.png" alt="" height="17">
+                    </span>
+                </a>
+
+                <a href="dashboard.html" class="logo logo-light">
+                    <span class="logo-sm">
+                        <img src="assets/images/logo-sm.png" alt="" height="22">
+                    </span>
+                    <span class="logo-lg">
+                        <img src="assets/images/logo-light.png" alt="" height="17">
+                    </span>
+                </a>
+                <button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover" id="vertical-hover">
+                    <i class="ri-record-circle-line"></i>
+                </button>
+            </div>
+
+            <div id="scrollbar">
+                <div class="container-fluid">
+
+                    <div id="two-column-menu">
+                    </div>
+                    <ul class="navbar-nav" id="navbar-nav">
+
+                        <li class="menu-title"><span data-key="t-menu">Menu</span></li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link" href="dashboard.html">
+                                <i class="ri-dashboard-line"></i>
+                                <span data-key="t-dashboard">Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link active" href="scans.html">
+                                <i class="ri-scan-line"></i>
+                                <span data-key="t-scans">Scans & Targets</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link" href="lab.html">
+                                <i class="ri-flask-line"></i>
+                                <span data-key="t-lab">Lab Mode</span>
+                            </a>
+                        </li>
+
+                        <li class="menu-title mt-2"><span data-key="t-menu">Settings</span></li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link" href="#">
+                                <i class="ri-user-settings-line"></i>
+                                <span data-key="t-settings">Settings</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-background"></div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- Start right Content here -->
+        <!-- ============================================================== -->
+        <div class="main-content">
+
+            <div class="page-content">
+                <div class="container-fluid">
+
+                    <!-- start page title -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                <h4 class="mb-sm-0">Scans & Targets</h4>
+
+                                <div class="page-title-right">
+                                    <ol class="breadcrumb m-0">
+                                        <li class="breadcrumb-item"><a href="javascript: void(0);">SecureLens</a></li>
+                                        <li class="breadcrumb-item active">Scans & Targets</li>
+                                    </ol>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                    <!-- end page title -->
+
+                    <div class="row">
+                        <!-- Targets Section -->
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header border-0 align-items-center d-flex">
+                                    <h4 class="card-title mb-0 flex-grow-1">Add Target</h4>
+                                </div>
+                                <div class="card-body">
+                                    <form id="targetForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Target Name</label>
+                                            <input type="text" id="tName" class="form-control" placeholder="e.g., My Website" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">URL</label>
+                                            <input type="url" id="tUrl" class="form-control" placeholder="e.g., http://example.com" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success w-100">Add Target</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-header border-0 align-items-center d-flex">
+                                    <h4 class="card-title mb-0 flex-grow-1">Targets</h4>
+                                </div>
+                                <div class="card-body p-0">
+                                    <ul class="list-group list-group-flush" id="targetList">
+                                        <!-- JS -->
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scans Section -->
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header border-0 align-items-center d-flex">
+                                    <h4 class="card-title mb-0 flex-grow-1">Scan History</h4>
+                                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#scanModal">
+                                        <i class="ri-add-line align-bottom me-1"></i> Launch New Scan
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-centered table-hover table-nowrap mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Target</th>
+                                                    <th>Status</th>
+                                                    <th>Started At</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="scansTable">
+                                                <!-- JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- end row -->
+
+                </div>
+                <!-- container-fluid -->
+            </div>
+            <!-- End Page-content -->
+
+            <footer class="footer">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <script>document.write(new Date().getFullYear())</script> &copy; SecureLens
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-sm-end d-none d-sm-block">
+                                Crafted with <i class="mdi mdi-heart text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+        <!-- end main content-->
+
+    </div>
+    <!-- END layout-wrapper -->
+
+    <!-- Scan Launch Modal -->
+    <div class="modal fade" id="scanModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Launch Scan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Select Target</label>
+                    <select id="scanTargetSelect" class="form-select">
+                        <!-- JS -->
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" onclick="launchScan()">Start Scan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/libs/simplebar/simplebar.min.js"></script>
+    <script src="assets/libs/node-waves/waves.min.js"></script>
+    <script src="assets/libs/feather-icons/feather.min.js"></script>
+    <script src="assets/js/pages/plugins/lord-icon-2.1.0.js"></script>
+    <script src="assets/js/plugins.js"></script>
+
+    <!-- App JS -->
+    <script src="assets/js/app.js"></script>
+    <script>
+        let targets = [];
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            if (!checkAuth()) return;
+            loadTargets();
+            loadScans();
+        });
+
+        async function loadTargets() {
+            targets = await fetchAPI("/api/targets/") || [];
+            document.getElementById("targetList").innerHTML = targets.length > 0 
+                ? targets.map(t => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-medium">${t.name}</div>
+                            <small class="text-muted">${t.url}</small>
+                        </div>
+                    </li>
+                `).join('')
+                : '<li class="list-group-item text-muted text-center">No targets added</li>';
+            
+            document.getElementById("scanTargetSelect").innerHTML = targets.length > 0
+                ? targets.map(t => `<option value="${t.id}">${t.name} (${t.url})</option>`).join('')
+                : '<option value="">No targets available</option>';
+        }
+
+        async function loadScans() {
+            const scans = await fetchAPI("/api/scans/") || [];
+            document.getElementById("scansTable").innerHTML = scans.length > 0
+                ? scans.map(s => `
+                    <tr>
+                        <td>${s.id}</td>
+                        <td>${s.target_id}</td>
+                        <td><span class="badge ${s.status === 'completed' ? 'bg-success' : s.status === 'running' ? 'bg-primary' : 'bg-secondary'}">${s.status}</span></td>
+                        <td>${new Date(s.created_at).toLocaleString()}</td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="4" class="text-muted text-center">No scans yet</td></tr>';
+        }
+
+        document.getElementById("targetForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("tName").value;
+            const url = document.getElementById("tUrl").value;
+            await postAPI("/api/targets/", { name, url });
+            document.getElementById("tName").value = '';
+            document.getElementById("tUrl").value = '';
+            loadTargets();
+        });
+
+        async function launchScan() {
+            const target_id = document.getElementById("scanTargetSelect").value;
+            if(!target_id) return;
+            await postAPI("/api/scans/launch", { target_id: parseInt(target_id) });
+            const modal = bootstrap.Modal.getInstance(document.getElementById('scanModal'));
+            modal.hide();
+            loadScans();
+            setInterval(loadScans, 3000);
+        }
+    </script>
+</body>
+
+</html>

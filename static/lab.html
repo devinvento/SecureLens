@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en" data-layout="twocolumn" data-sidebar="light" data-sidebar-size="lg" data-sidebar-image="none">
+
+<head>
+
+    <meta charset="utf-8" />
+    <title>Lab Mode | SecureLens</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta content="SecureLens - Vulnerability Scanner" name="description" />
+    <meta content="SecureLens" name="author" />
+
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="assets/images/favicon.ico">
+
+    <!-- Layout config Js -->
+    <script src="assets/js/layout.js"></script>
+    <!-- Bootstrap Css -->
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <!-- Icons Css -->
+    <link href="assets/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <!-- App Css-->
+    <link href="assets/css/app.min.css" rel="stylesheet" type="text/css" />
+    <!-- custom Css-->
+    <link href="assets/css/custom.min.css" rel="stylesheet" type="text/css" />
+
+    <style>
+        .lab-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .lab-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15) !important;
+        }
+        .lab-card.border-danger:hover {
+            border-color: #dc3545 !important;
+        }
+        .lab-card.border-warning:hover {
+            border-color: #ffc107 !important;
+        }
+        .lab-card.border-info:hover {
+            border-color: #0dcaf0 !important;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <!-- Begin page -->
+    <div id="layout-wrapper">
+
+        <header id="page-topbar">
+    <div class="layout-width">
+        <div class="navbar-header">
+            <div class="d-flex">
+                <!-- LOGO -->
+                <div class="navbar-brand-box horizontal-logo">
+                    <a href="dashboard.html" class="logo logo-dark">
+                        <span class="logo-sm">
+                            <img src="assets/images/logo-sm.png" alt="" height="22">
+                        </span>
+                        <span class="logo-lg">
+                            <img src="assets/images/logo-dark.png" alt="" height="17">
+                        </span>
+                    </a>
+
+                    <a href="dashboard.html" class="logo logo-light">
+                        <span class="logo-sm">
+                            <img src="assets/images/logo-sm.png" alt="" height="22">
+                        </span>
+                        <span class="logo-lg">
+                            <img src="assets/images/logo-light.png" alt="" height="17">
+                        </span>
+                    </a>
+                </div>
+
+                <button type="button" class="btn btn-sm px-3 fs-16 header-item vertical-menu-btn topnav-hamburger" id="topnav-hamburger-icon">
+                    <span class="hamburger-icon">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </span>
+                </button>
+            </div>
+
+            <div class="d-flex align-items-center">
+                <div class="dropdown ms-sm-3 header-item topbar-user">
+                    <button type="button" class="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <span class="d-flex align-items-center">
+                            <span class="text-start ms-xl-2">
+                                <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">Admin</span>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <h6 class="dropdown-header">Welcome Admin!</h6>
+                        <a class="dropdown-item" href="#" onclick="logoutUser()"><i class="mdi mdi-logout text-muted fs-16 align-middle me-1"></i> <span class="align-middle">Logout</span></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+        <div class="app-menu navbar-menu">
+            <div class="navbar-brand-box">
+                <a href="dashboard.html" class="logo logo-dark">
+                    <span class="logo-sm">
+                        <img src="assets/images/logo-sm.png" alt="" height="22">
+                    </span>
+                    <span class="logo-lg">
+                        <img src="assets/images/logo-dark.png" alt="" height="17">
+                    </span>
+                </a>
+
+                <a href="dashboard.html" class="logo logo-light">
+                    <span class="logo-sm">
+                        <img src="assets/images/logo-sm.png" alt="" height="22">
+                    </span>
+                    <span class="logo-lg">
+                        <img src="assets/images/logo-light.png" alt="" height="17">
+                    </span>
+                </a>
+                <button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover" id="vertical-hover">
+                    <i class="ri-record-circle-line"></i>
+                </button>
+            </div>
+
+            <div id="scrollbar">
+                <div class="container-fluid">
+
+                    <div id="two-column-menu">
+                    </div>
+                    <ul class="navbar-nav" id="navbar-nav">
+
+                        <li class="menu-title"><span data-key="t-menu">Menu</span></li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link" href="dashboard.html">
+                                <i class="ri-dashboard-line"></i>
+                                <span data-key="t-dashboard">Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link" href="scans.html">
+                                <i class="ri-scan-line"></i>
+                                <span data-key="t-scans">Scans & Targets</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link active" href="lab.html">
+                                <i class="ri-flask-line"></i>
+                                <span data-key="t-lab">Lab Mode</span>
+                            </a>
+                        </li>
+
+                        <li class="menu-title mt-2"><span data-key="t-menu">Settings</span></li>
+                        <li class="nav-item">
+                            <a class="nav-link menu-link" href="#">
+                                <i class="ri-user-settings-line"></i>
+                                <span data-key="t-settings">Settings</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-background"></div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- Start right Content here -->
+        <!-- ============================================================== -->
+        <div class="main-content">
+
+            <div class="page-content">
+                <div class="container-fluid">
+
+                    <!-- start page title -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                                <h4 class="mb-sm-0">Lab Mode</h4>
+
+                                <div class="page-title-right">
+                                    <ol class="breadcrumb m-0">
+                                        <li class="breadcrumb-item"><a href="javascript: void(0);">SecureLens</a></li>
+                                        <li class="breadcrumb-item active">Lab Mode</li>
+                                    </ol>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                    <!-- end page title -->
+
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="alert alert-info mb-0">
+                                <div class="d-flex align-items-center">
+                                    <i class="ri-information-line fs-20 me-2"></i>
+                                    <div>
+                                        <strong>Safe Testing Environment</strong><br>
+                                        <span class="text-muted">Built-in vulnerable targets for training and learning purposes. These targets are intentionally vulnerable and safe to scan.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- DVWA -->
+                        <div class="col-lg-4">
+                            <div class="card lab-card border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <div class="d-flex align-items-center">
+                                        <i class="ri-shield-keyhole-line fs-22 me-2"></i>
+                                        <h5 class="card-title mb-0 text-white">DVWA</h5>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Damn Vulnerable Web App is a PHP/MySQL web application that is intentionally vulnerable. Its main goals are to be an aid for security professionals to test their skills and tools.</p>
+                                    <div class="mb-3">
+                                        <code class="bg-light px-2 py-1 rounded">http://dvwa.local</code>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-danger">SQL Injection</span>
+                                        <span class="badge bg-warning text-dark">XSS</span>
+                                        <span class="badge bg-info text-dark">CSRF</span>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent border-top-0">
+                                    <button class="btn btn-outline-danger w-100" onclick="launchLabScan('DVWA')">
+                                        <i class="ri-scan-line me-1"></i> Launch Scan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OWASP Juice Shop -->
+                        <div class="col-lg-4">
+                            <div class="card lab-card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <div class="d-flex align-items-center">
+                                        <i class="ri-shopping-bag-3-line fs-22 me-2"></i>
+                                        <h5 class="card-title mb-0">OWASP Juice Shop</h5>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">OWASP Juice Shop is probably the most modern and sophisticated insecure web application! It can be used in security trainings, awareness demos, CTFs.</p>
+                                    <div class="mb-3">
+                                        <code class="bg-light px-2 py-1 rounded">http://juice-shop.local</code>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-danger">Injection</span>
+                                        <span class="badge bg-warning text-dark">Broken Auth</span>
+                                        <span class="badge bg-info text-dark">IDOR</span>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent border-top-0">
+                                    <button class="btn btn-outline-warning w-100" onclick="launchLabScan('Juice Shop')">
+                                        <i class="ri-scan-line me-1"></i> Launch Scan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- bWAPP -->
+                        <div class="col-lg-4">
+                            <div class="card lab-card border-info">
+                                <div class="card-header bg-info text-dark">
+                                    <div class="d-flex align-items-center">
+                                        <i class="ri-bug-line fs-22 me-2"></i>
+                                        <h5 class="card-title mb-0">bWAPP</h5>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">bWAPP, or a buggy web application, is a free and open source deliberately insecure web application. It helps security enthusiasts to discover and prevent web vulnerabilities.</p>
+                                    <div class="mb-3">
+                                        <code class="bg-light px-2 py-1 rounded">http://bwapp.local</code>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-danger">XXE</span>
+                                        <span class="badge bg-warning text-dark">RCE</span>
+                                        <span class="badge bg-info text-dark">SSRF</span>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent border-top-0">
+                                    <button class="btn btn-outline-info w-100" onclick="launchLabScan('bWAPP')">
+                                        <i class="ri-scan-line me-1"></i> Launch Scan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Lab Targets -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h5 class="mb-3">Additional Learning Resources</h5>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card lab-card">
+                                <div class="card-body text-center">
+                                    <div class="avatar-md mx-auto mb-3">
+                                        <span class="avatar-title bg-soft-primary text-primary rounded-circle fs-24">
+                                            <i class="ri-graduation-cap-line"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="card-title">PentesterLab</h6>
+                                    <p class="text-muted small">Learn web security through hands-on exercises</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card lab-card">
+                                <div class="card-body text-center">
+                                    <div class="avatar-md mx-auto mb-3">
+                                        <span class="avatar-title bg-soft-success text-success rounded-circle fs-24">
+                                            <i class="ri-code-s-slash-line"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="card-title">PortSwigger Lab</h6>
+                                    <p class="text-muted small">Web Security Academy with practical labs</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card lab-card">
+                                <div class="card-body text-center">
+                                    <div class="avatar-md mx-auto mb-3">
+                                        <span class="avatar-title bg-soft-danger text-danger rounded-circle fs-24">
+                                            <i class="ri-hammer-line"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="card-title">HackTheBox</h6>
+                                    <p class="text-muted small">Real-world penetration testing challenges</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card lab-card">
+                                <div class="card-body text-center">
+                                    <div class="avatar-md mx-auto mb-3">
+                                        <span class="avatar-title bg-soft-warning text-warning rounded-circle fs-24">
+                                            <i class="ri-lock-line"></i>
+                                        </span>
+                                    </div>
+                                    <h6 class="card-title">OWASP Top 10</h6>
+                                    <p class="text-muted small">Learn the most critical web vulnerabilities</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <!-- container-fluid -->
+            </div>
+            <!-- End Page-content -->
+
+            <footer class="footer">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <script>document.write(new Date().getFullYear())</script> &copy; SecureLens
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-sm-end d-none d-sm-block">
+                                Crafted with <i class="mdi mdi-heart text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+        <!-- end main content-->
+
+    </div>
+    <!-- END layout-wrapper -->
+
+    <!-- JAVASCRIPT -->
+    <script src="assets/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/libs/simplebar/simplebar.min.js"></script>
+    <script src="assets/libs/node-waves/waves.min.js"></script>
+    <script src="assets/libs/feather-icons/feather.min.js"></script>
+    <script src="assets/js/pages/plugins/lord-icon-2.1.0.js"></script>
+    <script src="assets/js/plugins.js"></script>
+
+    <!-- App JS -->
+    <script src="assets/js/app.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => checkAuth());
+
+        async function launchLabScan(name) {
+            const targets = await fetchAPI("/api/targets/");
+            if (!targets) return;
+            
+            const target = targets.find(t => t.name === name);
+            if(target) {
+                await postAPI("/api/scans/launch", { target_id: target.id });
+                alert(`Scan launched for ${name}! Check the Scans page for progress.`);
+                window.location.href = "/scans.html";
+            } else {
+                alert(`Target ${name} not found in database. Please add it first.`);
+            }
+        }
+    </script>
+</body>
+
+</html>
