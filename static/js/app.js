@@ -22,13 +22,13 @@ async function loginUser(username, password) {
     formData.append("password", password);
 
     try {
-        const response = await fetch("/api/auth/login", {
+        const response = await LoaderManager.fetchWithLoader("/api/auth/login", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded"
             },
             body: formData.toString()
-        });
+        }, "Logging in...");
         
         const data = await response.json();
         if(response.ok) {
@@ -42,11 +42,11 @@ async function loginUser(username, password) {
     }
 }
 
-async function fetchAPI(endpoint) {
+async function fetchAPI(endpoint, loadingText = null) {
     const token = getToken();
-    const res = await fetch(endpoint, {
+    const res = await LoaderManager.fetchWithLoader(endpoint, {
         headers: { "Authorization": `Bearer ${token}` }
-    });
+    }, loadingText);
     if(res.status === 401) {
         logoutUser();
         return null;
@@ -54,19 +54,20 @@ async function fetchAPI(endpoint) {
     return await res.json();
 }
 
-async function postAPI(endpoint, payload) {
+async function postAPI(endpoint, payload, loadingText = null) {
     const token = getToken();
-    const res = await fetch(endpoint, {
+    const res = await LoaderManager.fetchWithLoader(endpoint, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload)
-    });
+    }, loadingText);
     if(res.status === 401) {
         logoutUser();
         return null;
     }
     return await res.json();
 }
+

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Scans & Targets - SecureLens{% endblock %}
+
+{% block custom_css %}{% endblock %}
+
+{% block custom_head %}{% endblock %}
+
+{% block page_title %}Scans & Targets{% endblock %}
+
+{% block breadcrumb %}<li class="breadcrumb-item active">Scans & Targets</li>{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Targets Section -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Add Target</h4>
+            </div>
+            <div class="card-body">
+                <form id="targetForm">
+                    <div class="mb-3">
+                        <label class="form-label">Target Name</label>
+                        <input type="text" id="tName" class="form-control" placeholder="e.g., My Website" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL</label>
+                        <input type="url" id="tUrl" class="form-control" placeholder="e.g., http://example.com" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Add Target</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Targets</h4>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" id="targetList">
+                    <!-- JS -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scans Section -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Scans</h4>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#scanModal">
+                    <i class="ri-add-line align-bottom me-1"></i> New Scan
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-centered table-hover table-nowrap mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Target ID</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scansTable">
+                            <!-- JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}
+
+{% block scripts %}
+<!-- Scan Launch Modal -->
+<div class="modal fade" id="scanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Launch Scan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label">Select Target</label>
+                <select id="scanTargetSelect" class="form-select">
+                    <!-- JS -->
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="launchScan()">Start Scan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let targets = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        if (!checkAuth()) return;
+        loadTargets();
+        loadScans();
+    });
+
+    async function loadTargets() {
+        targets = await fetchAPI("/api/targets/", "Loading targets...") || [];
+        document.getElementById("targetList").innerHTML = targets.length > 0 
+            ? targets.map(t => `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-medium">${t.name}</div>
+                        <small class="text-muted">${t.url}</small>
+                    </div>
+                </li>
+            `).join('')
+            : '<li class="list-group-item text-muted text-center">No targets added</li>';
+        
+        document.getElementById("scanTargetSelect").innerHTML = targets.length > 0
+            ? targets.map(t => `<option value="${t.id}">${t.name} (${t.url})</option>`).join('')
+            : '<option value="">No targets available</option>';
+    }
+
+    async function loadScans() {
+        const scans = await fetchAPI("/api/scans/", "Loading scans...") || [];
+        document.getElementById("scansTable").innerHTML = scans.length > 0
+            ? scans.map(s => `
+                <tr>
+                    <td>${s.id}</td>
+                    <td>${s.target_id}</td>
+                    <td><span class="badge ${s.status === 'completed' ? 'bg-success' : s.status === 'running' ? 'bg-primary' : 'bg-secondary'}">${s.status}</span></td>
+                    <td>${new Date(s.created_at).toLocaleString()}</td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="4" class="text-muted text-center">No scans yet</td></tr>';
+    }
+
+    document.getElementById("targetForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("tName").value;
+        const url = document.getElementById("tUrl").value;
+        await postAPI("/api/targets/", { name, url }, "Adding target...");
+        document.getElementById("tName").value = '';
+        document.getElementById("tUrl").value = '';
+        loadTargets();
+    });
+
+    async function launchScan() {
+        const target_id = document.getElementById("scanTargetSelect").value;
+        if(!target_id) return;
+        await postAPI("/api/scans/launch", { target_id: parseInt(target_id) }, "Launching scan...");
+        const modal = bootstrap.Modal.getInstance(document.getElementById('scanModal'));
+        modal.hide();
+        loadScans();
+        setInterval(loadScans, 3000);
+    }
+</script>
+{% endblock %}

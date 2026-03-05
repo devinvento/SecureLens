@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SecureLens{% endblock %}
+
+{% block custom_css %}{% endblock %}
+
+{% block custom_head %}{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block breadcrumb %}<li class="breadcrumb-item active">Dashboard</li>{% endblock %}
+
+{% block content %}
+<!-- Dashboard Content -->
+<div class="row">
+    <div class="col-xl-3 col-lg-6">
+        <div class="card card-animate">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0">
+                        <span class="avatar-title bg-soft-primary text-primary rounded-2 fs-22">
+                            <i class="ri-global-line"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden ms-3">
+                        <p class="text-muted text-truncate mb-0">Total Targets</p>
+                        <h4 class="fs-22 fw-semibold mb-0" id="totalTargets">-</h4>
+                    </div>
+                </div>
+            </div><!-- end card body -->
+        </div><!-- end card -->
+    </div><!-- end col -->
+
+    <div class="col-xl-3 col-lg-6">
+        <div class="card card-animate">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0">
+                        <span class="avatar-title bg-soft-success text-success rounded-2 fs-22">
+                            <i class="ri-scan-line"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden ms-3">
+                        <p class="text-muted text-truncate mb-0">Total Scans</p>
+                        <h4 class="fs-22 fw-semibold mb-0" id="totalScans">-</h4>
+                    </div>
+                </div>
+            </div><!-- end card body -->
+        </div><!-- end card -->
+    </div><!-- end col -->
+
+    <div class="col-xl-3 col-lg-6">
+        <div class="card card-animate">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0">
+                        <span class="avatar-title bg-soft-danger text-danger rounded-2 fs-22">
+                            <i class="ri-alert-line"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden ms-3">
+                        <p class="text-muted text-truncate mb-0">Vulnerabilities</p>
+                        <h4 class="fs-22 fw-semibold mb-0" id="totalVulns">-</h4>
+                    </div>
+                </div>
+            </div><!-- end card body -->
+        </div><!-- end card -->
+    </div><!-- end col -->
+
+    <div class="col-xl-3 col-lg-6">
+        <div class="card card-animate">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm flex-shrink-0">
+                        <span class="avatar-title bg-soft-warning text-warning rounded-2 fs-22">
+                            <i class="ri-time-line"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden ms-3">
+                        <p class="text-muted text-truncate mb-0">Last Scan</p>
+                        <h4 class="fs-22 fw-semibold mb-0" id="lastScan">-</h4>
+                    </div>
+                </div>
+            </div><!-- end card body -->
+        </div><!-- end card -->
+    </div><!-- end col -->
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Vulnerabilities by Severity</h4>
+            </div>
+            <div class="card-body pb-2">
+                <div id="severityChart" class="apex-charts"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Top Vulnerable Hosts</h4>
+            </div>
+            <div class="card-body pt-0">
+                <ul class="list-group list-group-flush" id="topHostsList">
+                    <!-- Populated by JS -->
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">Recent Scans</h4>
+                <a href="/scans.html" class="btn btn-sm btn-success">View All</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-centered table-hover table-nowrap mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Target</th>
+                                <th>Status</th>
+                                <th>Started At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentScansTable">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end row -->
+{% endblock %}
+
+{% block extra_js %}
+<!-- apexcharts -->
+<script src="/static/assets/libs/apexcharts/apexcharts.min.js"></script>
+<script src="/static/assets/js/pages/dashboard-analytics.init.js"></script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        if (!checkAuth()) return;
+        
+        const data = await fetchAPI("/api/dashboard/", "Loading dashboard data...");
+        if (data) {
+            // Summary Cards
+            document.getElementById("totalTargets").textContent = data.summary.total_targets || 0;
+            document.getElementById("totalScans").textContent = data.summary.total_scans || 0;
+            document.getElementById("totalVulns").textContent = data.summary.total_vulnerabilities || 0;
+            document.getElementById("lastScan").textContent = data.summary.last_scan ? new Date(data.summary.last_scan).toLocaleDateString() : 'N/A';
+
+            // Top Hosts
+            const hostsHtml = data.top_hosts && data.top_hosts.length > 0 
+                ? data.top_hosts.map(h => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="ri-global-line me-2"></i>${h.name}</span>
+                        <span class="badge bg-danger rounded-pill">${h.vuln_count}</span>
+                    </li>
+                `).join('')
+                : '<li class="list-group-item text-muted">No data available</li>';
+            document.getElementById("topHostsList").innerHTML = hostsHtml;
+
+            // Recent Scans
+            const scansHtml = data.recent_scans && data.recent_scans.length > 0
+                ? data.recent_scans.map(s => `
+                    <tr>
+                        <td>${s.id}</td>
+                        <td>${s.target}</td>
+                        <td><span class="badge bg-${s.status === 'completed' ? 'success' : s.status === 'running' ? 'info' : 'warning'}">${s.status}</span></td>
+                        <td>${new Date(s.started_at).toLocaleString()}</td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="4" class="text-muted text-center">No recent scans</td></tr>';
+            document.getElementById("recentScansTable").innerHTML = scansHtml;
+
+            // Severity Chart
+            if (data.severity_counts) {
+                const severityOptions = {
+                    series: [data.severity_counts.critical || 0, data.severity_counts.high || 0, data.severity_counts.medium || 0, data.severity_counts.low || 0],
+                    labels: ['Critical', 'High', 'Medium', 'Low'],
+                    colors: ['#ff5252', '#ff7f50', '#ffc107', '#17a2b8'],
+                    chart: { type: 'donut', height: 300 },
+                    legend: { position: 'bottom' },
+                    dataLabels: { enabled: false }
+                };
+                const severityChart = new ApexCharts(document.querySelector("#severityChart"), severityOptions);
+                severityChart.render();
+            }
+        }
+    });
+</script>
+{% endblock %}

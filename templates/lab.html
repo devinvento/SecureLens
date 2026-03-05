@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Lab Mode - SecureLens{% endblock %}
+
+{% block custom_css %}
+<style>
+    .lab-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .lab-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.15) !important;
+    }
+    .lab-card.border-danger:hover {
+        border-color: #dc3545 !important;
+    }
+    .lab-card.border-warning:hover {
+        border-color: #ffc107 !important;
+    }
+    .lab-card.border-info:hover {
+        border-color: #0dcaf0 !important;
+    }
+</style>
+{% endblock %}
+
+{% block custom_head %}{% endblock %}
+
+{% block page_title %}Lab Mode{% endblock %}
+
+{% block breadcrumb %}<li class="breadcrumb-item active">Lab Mode</li>{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info mb-0">
+            <div class="d-flex align-items-center">
+                <i class="ri-information-line fs-20 me-2"></i>
+                <div>
+                    <strong>Safe Testing Environment</strong><br>
+                    <span class="text-muted">Built-in vulnerable targets for training and learning purposes. These targets are intentionally vulnerable and safe to scan.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- DVWA -->
+    <div class="col-lg-4">
+        <div class="card lab-card border-danger">
+            <div class="card-header bg-danger text-white">
+                <div class="d-flex align-items-center">
+                    <i class="ri-shield-keyhole-line fs-22 me-2"></i>
+                    <h5 class="card-title mb-0 text-white">DVWA</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Damn Vulnerable Web App is a PHP/MySQL web application that is intentionally vulnerable. Its main goals are to be an aid for security professionals to test their skills and tools.</p>
+                <div class="mb-3">
+                    <code class="bg-light px-2 py-1 rounded">http://dvwa.local</code>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-danger">SQL Injection</span>
+                    <span class="badge bg-warning text-dark">XSS</span>
+                    <span class="badge bg-info text-dark">CSRF</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top-0">
+                <button class="btn btn-outline-danger w-100" onclick="launchLabScan('DVWA')">
+                    <i class="ri-scan-line me-1"></i> Launch Scan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OWASP Juice Shop -->
+    <div class="col-lg-4">
+        <div class="card lab-card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <div class="d-flex align-items-center">
+                    <i class="ri-shopping-bag-3-line fs-22 me-2"></i>
+                    <h5 class="card-title mb-0">OWASP Juice Shop</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="card-text">OWASP Juice Shop is probably the most modern and sophisticated insecure web application! It can be used in security trainings, awareness demos, CTFs.</p>
+                <div class="mb-3">
+                    <code class="bg-light px-2 py-1 rounded">http://juice-shop.local</code>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-danger">Injection</span>
+                    <span class="badge bg-warning text-dark">Broken Auth</span>
+                    <span class="badge bg-info text-dark">IDOR</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top-0">
+                <button class="btn btn-outline-warning w-100" onclick="launchLabScan('Juice Shop')">
+                    <i class="ri-scan-line me-1"></i> Launch Scan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- bWAPP -->
+    <div class="col-lg-4">
+        <div class="card lab-card border-info">
+            <div class="card-header bg-info text-dark">
+                <div class="d-flex align-items-center">
+                    <i class="ri-bug-line fs-22 me-2"></i>
+                    <h5 class="card-title mb-0">bWAPP</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="card-text">bWAPP, or a buggy web application, is a free and open source deliberately insecure web application. It helps security enthusiasts to discover and prevent web vulnerabilities.</p>
+                <div class="mb-3">
+                    <code class="bg-light px-2 py-1 rounded">http://bwapp.local</code>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-danger">Injection</span>
+                    <span class="badge bg-warning text-dark">XSS</span>
+                    <span class="badge bg-info text-dark">XXE</span>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-top-0">
+                <button class="btn btn-outline-info w-100" onclick="launchLabScan('bWAPP')">
+                    <i class="ri-scan-line me-1"></i> Launch Scan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => checkAuth());
+
+    async function launchLabScan(name) {
+        const targets = await fetchAPI("/api/targets/", "Loading lab targets...");
+        if (!targets) return;
+        
+        const target = targets.find(t => t.name === name);
+        if(target) {
+            await postAPI("/api/scans/launch", { target_id: target.id }, `Launching scan for ${name}...`);
+            alert(`Scan launched for ${name}! Check the Scans page for progress.`);
+            window.location.href = "/scans.html";
+        } else {
+            alert(`Target ${name} not found in database. Please add it first.`);
+        }
+    }
+</script>
+{% endblock %}
