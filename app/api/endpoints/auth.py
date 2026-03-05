@@ -12,10 +12,12 @@ router = APIRouter()
 @router.post("/login")
 def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     user = db.query(User).filter(User.email == form_data.username).first()
-    # In a real app we'd verify password. Since we seeded with dummy hash, for lab purposes we allow any pass if user exists.
-    # Note: we use form_data.password if we were taking real passwords.
-    if not user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {

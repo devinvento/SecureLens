@@ -34,6 +34,13 @@ async def scans(request: Request):
 async def lab(request: Request):
     return templates.TemplateResponse("lab.html", {"request": request})
 
+# Serve tools.html from templates
+@app.get("/tools.html", response_class=HTMLResponse)
+async def tools_page(request: Request):
+    return templates.TemplateResponse("tools.html", {"request": request})
+
+
+
 # Serve index.html from static folder (original format without extends)
 @app.get("/index.html", response_class=HTMLResponse)
 async def index():

@@ -4,6 +4,7 @@ from app.db.session import SessionLocal, engine
 from app.db.base import Base
 from app.models.user import User
 from app.models.target import Target
+from app.core.security import get_password_hash, pwd_context
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,14 +17,19 @@ def init_db(db: Session) -> None:
     # Create an admin user if not exists
     user = db.query(User).filter(User.email == "admin@securelens.local").first()
     if not user:
-        # In a real app, hash the password
         user = User(
             email="admin@securelens.local",
-            hashed_password="hashed_admin_password", # fake hash
+            hashed_password=get_password_hash("admin123"),  # Change this in production!
             is_superuser=True
         )
         db.add(user)
         logger.info("Admin user created.")
+    else:
+        # Check if hash is identifiable, if not, re-hash "admin123"
+        if pwd_context.identify(user.hashed_password) is None:
+            logger.warning("Unidentifiable hash for admin user. Re-hashing default password.")
+            user.hashed_password = get_password_hash("admin123")
+            db.add(user)
 
     # Seed Lab Mode targets
     targets = [

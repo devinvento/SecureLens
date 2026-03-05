@@ -15,10 +15,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - securelens_network
 
   redis:
     image: redis:7-alpine
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - securelens_network
 
   web:
     build: .
@@ -38,6 +47,8 @@ services:
       redis:
         condition: service_started
     restart: always
+    networks:
+      - securelens_network
 
   worker:
     build: .
@@ -50,9 +61,17 @@ services:
     volumes:
       - .:/app
     depends_on:
-      - redis
-      - db
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
     restart: always
+    networks:
+      - securelens_network
 
 volumes:
   postgres_data:
+
+networks:
+  securelens_network:
+    driver: bridge
