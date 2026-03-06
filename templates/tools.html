@@ -33,7 +33,6 @@
         border-radius: 8px;
         font-family: 'Courier New', monospace;
         font-size: 12px;
-        max-height: 280px;
         overflow-y: auto;
         white-space: pre-wrap;
         word-break: break-all;
@@ -41,6 +40,105 @@
     .status-badge { font-size: 11px; }
     .job-row { border-bottom: 1px solid #f0f0f0; }
     .job-row:last-child { border-bottom: none; }
+
+    /* Custom Premium Tooltip */
+    .doc-link {
+        position: relative;
+        cursor: pointer;
+    }
+    .custom-tooltip {
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        width: 280px;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        pointer-events: none;
+        text-align: left;
+    }
+    .custom-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -6px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+    }
+    .doc-link:hover .custom-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+    .tooltip-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 6px;
+    }
+    .tooltip-header i {
+        font-size: 18px;
+        color: #38bdf8;
+        margin-right: 8px;
+    }
+    .tooltip-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #f1f5f9;
+        margin: 0;
+    }
+    .tooltip-body {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: #cbd5e1;
+    }
+    .tooltip-footer {
+        margin-top: 10px;
+        font-size: 0.75rem;
+        color: #38bdf8;
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+    }
+    .tooltip-footer {
+        margin-top: 10px;
+        font-size: 0.75rem;
+        color: #38bdf8;
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+    }
+
+    /* AI Analysis Styles */
+    .analysis-card {
+        background: #f8fafc;
+        border-left: 4px solid #38bdf8;
+        border-radius: 8px;
+    }
+    .report-content h1, .report-content h2, .report-content h3 {
+        color: #1e293b;
+        margin-top: 1.5rem;
+        font-weight: 700;
+    }
+    .report-content h4, .report-content h5 {
+        color: #334155;
+        margin-top: 1rem;
+    }
+    .report-content ul { padding-left: 1.25rem; }
+    .report-content li { margin-bottom: 0.5rem; }
 </style>
 {% endblock %}
 
@@ -54,37 +152,6 @@
     </div>
 </div>
 
-<!-- Global Domain Lookup -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card bg-soft-primary border-primary border-dashed">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col-lg-6">
-                        <div class="d-flex align-items-center">
-                            <div class="avatar-sm flex-shrink-0">
-                                <span class="avatar-title bg-primary text-white rounded-circle fs-20">
-                                    <i class="ri-search-2-line"></i>
-                                </span>
-                            </div>
-                            <div class="ms-3">
-                                <h5 class="fs-15 mb-1 fw-bold">Target Reconnaissance</h5>
-                                <p class="text-muted mb-0">Enter a domain to resolve its IP and auto-fill tools.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="input-group">
-                            <input type="text" id="globalDomainInput" class="form-control" placeholder="e.g., google.com" onkeypress="if(event.key === 'Enter') resolveTarget()">
-                            <button class="btn btn-primary" type="button" id="lookupBtn" onclick="resolveTarget()">
-                                <i class="ri-zoom-in-line me-1"></i> Resolve & Auto-fill
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <div class="row">
@@ -94,16 +161,16 @@
         <div class="row g-3" id="toolCardsGrid">
 
             {% set tools = [
-                {"id": "nmap",           "name": "Nmap",           "icon": "ri-router-line",        "color": "nmap",        "desc": "Port & service scanning. Fast, powerful host discovery.",      "ph": "192.168.1.1",           "args_hint": "e.g. -sV -p 1-1000"},
-                {"id": "theHarvester",   "name": "theHarvester",   "icon": "ri-mail-search-line",   "color": "harvester",   "desc": "Gather emails, subdomains & names from public sources.",          "ph": "example.com",           "args_hint": ""},
-                {"id": "finalrecon",     "name": "FinalRecon",     "icon": "ri-global-line",        "color": "finalrecon",  "desc": "OSINT recon: WHOIS, SSL, headers, DNS, sub-domains.",             "ph": "https://example.com",   "args_hint": ""},
-                {"id": "amass",          "name": "Amass",          "icon": "ri-sitemap-line",       "color": "amass",       "desc": "In-depth DNS enumeration & subdomain mapping.",                  "ph": "example.com",           "args_hint": ""},
-                {"id": "ffuf",           "name": "ffuf",           "icon": "ri-search-eye-line",    "color": "ffuf",        "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing.",    "ph": "https://example.com",   "args_hint": "e.g. -fc 404"},
-                {"id": "secretfinder",   "name": "SecretFinder",   "icon": "ri-key-2-line",         "color": "secretfinder","desc": "Find secrets & API keys hidden in JavaScript files.",            "ph": "https://example.com/app.js", "args_hint": ""},
-                {"id": "pymeta",         "name": "PyMeta",         "icon": "ri-file-info-line",     "color": "pymeta",      "desc": "Metadata harvesting from public docs and files.",                "ph": "example.com",           "args_hint": ""},
-                {"id": "mosint",         "name": "Mosint",         "icon": "ri-user-search-line",   "color": "mosint",      "desc": "Email OSINT: breach checks, social, domains & more.",            "ph": "user@example.com",      "args_hint": ""},
-                {"id": "ghunt",          "name": "GHunt",          "icon": "ri-google-line",        "color": "ghunt",       "desc": "Google account OSINT: profile info, maps, calendar leaks.",     "ph": "user@gmail.com",        "args_hint": ""},
-                {"id": "osmedeus",       "name": "Osmedeus",       "icon": "ri-robot-line",         "color": "osmedeus",    "desc": "Automated recon workflow orchestrator for large-scale scans.",   "ph": "example.com",           "args_hint": ""}
+                {"id": "nmap",           "name": "Nmap",           "icon": "ri-router-line",        "color": "nmap",        "desc": "Port & service scanning. Fast, powerful host discovery.",      "ph": "192.168.1.1",           "args_hint": "e.g. -sS -sV -T4 -p- --open", "doc": "https://nmap.org/book/man.html"},
+                {"id": "theHarvester",   "name": "theHarvester",   "icon": "ri-mail-search-line",   "color": "harvester",   "desc": "Gather emails, subdomains & names from public sources.",          "ph": "example.com",           "args_hint": "e.g. -l -n -r", "sources": ["crtsh", "rapiddns", "duckduckgo", "waybackarchive", "bufferoverun", "subdomaincenter"], "doc": "https://github.com/laramies/theHarvester"},
+                {"id": "finalrecon",     "name": "FinalRecon",     "icon": "ri-global-line",        "color": "finalrecon",  "desc": "OSINT recon: WHOIS, SSL, headers, DNS, sub-domains.",             "ph": "https://example.com",   "args_hint": "", "doc": "https://github.com/thewhiteh4t/FinalRecon"},
+                {"id": "amass",          "name": "Amass",          "icon": "ri-sitemap-line",       "color": "amass",       "desc": "In-depth DNS enumeration & subdomain mapping.",                  "ph": "example.com",           "args_hint": "", "doc": "https://github.com/owasp-amass/amass"},
+                {"id": "ffuf",           "name": "ffuf",           "icon": "ri-search-eye-line",    "color": "ffuf",        "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing.",    "ph": "https://example.com",   "args_hint": "e.g. -fc 404", "doc": "https://github.com/ffuf/ffuf"},
+                {"id": "secretfinder",   "name": "SecretFinder",   "icon": "ri-key-2-line",         "color": "secretfinder","desc": "Find secrets & API keys hidden in JavaScript files.",            "ph": "https://example.com/app.js", "args_hint": "", "doc": "https://github.com/m4ll0k/SecretFinder"},
+                {"id": "pymeta",         "name": "PyMeta",         "icon": "ri-file-info-line",     "color": "pymeta",      "desc": "Metadata harvesting from public docs and files.",                "ph": "example.com",           "args_hint": "", "doc": "https://github.com/m8r0wn/pymeta"},
+                {"id": "mosint",         "name": "Mosint",         "icon": "ri-user-search-line",   "color": "mosint",      "desc": "Email OSINT: breach checks, social, domains & more.",            "ph": "user@example.com",      "args_hint": "", "doc": "https://github.com/alpkeskin/mosint"},
+                {"id": "ghunt",          "name": "GHunt",          "icon": "ri-google-line",        "color": "ghunt",       "desc": "Google account OSINT: profile info, maps, calendar leaks.",     "ph": "user@gmail.com",        "args_hint": "", "doc": "https://github.com/mxrch/GHunt"},
+                {"id": "osmedeus",       "name": "Osmedeus",       "icon": "ri-robot-line",         "color": "osmedeus",    "desc": "Automated recon workflow orchestrator for large-scale scans.",   "ph": "example.com",           "args_hint": "", "doc": "https://github.com/j3ssie/osmedeus"}
             ] %}
 
             {% for tool in tools %}
@@ -116,8 +183,28 @@
                                     <i class="{{ tool.icon }}"></i>
                                 </span>
                             </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold">{{ tool.name }}</h6>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h6 class="mb-0 fw-bold">{{ tool.name }}</h6>
+                                    {% if tool.doc %}
+                                    <div class="doc-link">
+                                        <i class="ri-information-line text-primary fs-15"></i>
+                                        <div class="custom-tooltip">
+                                            <div class="tooltip-header">
+                                                <i class="ri-book-read-line"></i>
+                                                <h6 class="tooltip-title">{{ tool.name }}</h6>
+                                            </div>
+                                            <div class="tooltip-body">
+                                                Official documentation and manual for <b>{{ tool.name }}</b>. Click the icon to visit the external site for parameters and examples.
+                                            </div>
+                                            <div class="tooltip-footer">
+                                                <i class="ri-external-link-line me-1"></i> Visit Documentation
+                                            </div>
+                                        </div>
+                                        <a href="{{ tool.doc }}" target="_blank" class="stretched-link"></a>
+                                    </div>
+                                    {% endif %}
+                                </div>
                                 <small class="text-muted">{{ tool.desc }}</small>
                             </div>
                         </div>
@@ -126,9 +213,21 @@
                             <label class="form-label fw-medium mb-1">Target</label>
                             <input type="text"
                                 id="target_{{ tool.id }}"
-                                class="form-control form-control-sm"
-                                placeholder="{{ tool.ph }}">
+                                class="form-control form-control-sm target-input"
+                                placeholder="{{ tool.ph }}"
+                                readonly>
                         </div>
+
+                        {% if tool.sources %}
+                        <div class="mb-3">
+                            <label class="form-label fw-medium mb-1">Sources</label>
+                            <select id="sources_{{ tool.id }}" class="form-select form-select-sm select2-source" multiple>
+                                {% for src in tool.sources %}
+                                <option value="{{ src }}" selected>{{ src }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
 
                         {% if tool.args_hint %}
                         <div class="mb-3">
@@ -179,14 +278,14 @@
 
 <!-- Output Modal -->
 <div class="modal fade" id="outputModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="outputModalTitle">Tool Output</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0">
-                <pre class="output-block p-3 mb-0" id="outputModalBody">Loading...</pre>
+                        <pre class="output-block p-3 mb-0" id="outputModalBody">Loading...</pre>
             </div>
         </div>
     </div>
@@ -201,63 +300,153 @@
     document.addEventListener("DOMContentLoaded", () => {
         if (!checkAuth()) return;
         loadJobs();
+        loadTargetFromSession();
         // Auto-refresh every 4 seconds
         pollTimer = setInterval(loadJobs, 4000);
     });
 
-    async function resolveTarget() {
-        const domain = document.getElementById("globalDomainInput").value.trim();
-        const btn = document.getElementById("lookupBtn");
+    // Save target to session storage and auto-fill all tool inputs
+    function saveTarget() {
+        const target = document.getElementById("globalTargetInput")?.value?.trim() || document.getElementById("globalDomainInput")?.value?.trim();
         
-        if (!domain) {
+        if (!target) {
             Swal.fire({ icon: "warning", title: "Input Required", text: "Please enter a domain or IP address.", timer: 2000, showConfirmButton: false });
             return;
         }
 
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Resolving...`;
+        // Save to session storage
+        sessionStorage.setItem('recon_target', target);
+        
+        // Auto-fill all target inputs
+        const inputs = document.querySelectorAll('.target-input');
+        inputs.forEach(input => {
+            input.value = target;
+            input.classList.add('is-valid');
+            setTimeout(() => input.classList.remove('is-valid'), 2000);
+        });
+
+        Swal.fire({ icon: "success", title: "Target Set!", text: `${target} will be used for all tools.`, timer: 2000, showConfirmButton: false });
+    }
+
+    // Clear target from session storage
+    function clearTarget() {
+        sessionStorage.removeItem('recon_target');
+        
+        // Clear all target inputs
+        const inputs = document.querySelectorAll('.target-input');
+        inputs.forEach(input => {
+            input.value = '';
+        });
+
+        // Clear header input
+        const headerInput = document.getElementById('globalTargetInput');
+        if (headerInput) headerInput.value = '';
+
+        Swal.fire({ icon: "info", title: "Target Cleared", text: "All tool targets have been cleared.", timer: 2000, showConfirmButton: false });
+    }
+
+    // Load target from session storage on page load
+    function loadTargetFromSession() {
+        const savedTarget = sessionStorage.getItem('recon_target');
+        const savedDomain = sessionStorage.getItem('recon_domain');
+        if (savedTarget) {
+            const headerInput = document.getElementById('globalTargetInput');
+            if (headerInput) headerInput.value = savedDomain || savedTarget;
+            
+            // Auto-fill all target inputs
+            const inputs = document.querySelectorAll('.target-input');
+            inputs.forEach(input => {
+                input.value = savedTarget;
+            });
+        }
+    }
+
+    // Listen for target resolved events from header
+    window.addEventListener('targetResolved', function(e) {
+        const { target, domain } = e.detail;
+        const inputs = document.querySelectorAll('.target-input');
+        inputs.forEach(input => {
+            input.value = target;
+            input.classList.add('is-valid');
+            setTimeout(() => input.classList.remove('is-valid'), 2000);
+        });
+    });
+
+    // Global function to set target from header
+    async function setGlobalTarget() {
+        const input = document.getElementById('globalTargetInput');
+        const target = input?.value?.trim();
+        const btn = input?.parentElement?.querySelector('button');
+        
+        if (!target) {
+            Swal.fire({ icon: "warning", title: "Input Required", text: "Please enter a domain or IP address.", timer: 2000, showConfirmButton: false });
+            return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
+        }
 
         try {
-            // Using the new lookup API
-            const res = await fetchAPI(`/api/tools/lookup/${domain}`);
+            // Call lookup API
+            const res = await fetchAPI(`/api/tools/lookup/${encodeURIComponent(target)}`);
+            
+            let finalTarget = target;
             
             if (res && res.status === "success" && res.ip) {
-                const targetValue = res.ip;
+                // Domain resolved to IP
+                finalTarget = res.ip;
+                sessionStorage.setItem('recon_target', finalTarget);
+                sessionStorage.setItem('recon_domain', target);
+                sessionStorage.setItem('recon_resolved_ip', res.ip);
                 
-                // Auto-fill all tool inputs
-                const inputs = document.querySelectorAll('input[id^="target_"]');
-                inputs.forEach(input => {
-                    input.value = targetValue;
-                    // Highlight the change
-                    input.classList.add('is-valid');
-                    setTimeout(() => input.classList.remove('is-valid'), 2000);
-                });
-
-                Swal.fire({
-                    icon: "success",
-                    title: "Resolved!",
-                    text: `Domain ${domain} resolved to ${res.ip}. Tool fields updated.`,
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+                Swal.fire({ icon: "success", title: "Resolved!", text: `${target} resolved to ${res.ip}. Tools will use the IP.`, timer: 2000, showConfirmButton: false });
+            } else if (res && res.status === "error") {
+                // Lookup failed - check if it's already an IP
+                const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+                if (ipPattern.test(target)) {
+                    finalTarget = target;
+                    sessionStorage.setItem('recon_target', finalTarget);
+                    sessionStorage.setItem('recon_domain', '');
+                } else {
+                    Swal.fire({ icon: "error", title: "Resolution Failed", text: res.message || "Could not resolve target.", timer: 2000, showConfirmButton: false });
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = `<i class="ri-save-line"></i>`;
+                    }
+                    return;
+                }
             } else {
-                // If lookup fails, still fill with domain if it looks somewhat valid
-                const inputs = document.querySelectorAll('input[id^="target_"]');
-                inputs.forEach(input => { input.value = domain; });
-                
-                Swal.fire({
-                    icon: "info",
-                    title: "Resolved (Domain Only)",
-                    text: `Could not resolve IP for ${domain}, but tool fields were filled with the domain name.`,
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+                // No response - assume it's an IP
+                finalTarget = target;
+                sessionStorage.setItem('recon_target', finalTarget);
+                sessionStorage.setItem('recon_domain', '');
             }
+            
+            // Auto-fill all target inputs
+            const inputs = document.querySelectorAll('.target-input');
+            inputs.forEach(input => {
+                input.value = finalTarget;
+                input.classList.add('is-valid');
+                setTimeout(() => input.classList.remove('is-valid'), 2000);
+            });
+
         } catch (err) {
             console.error(err);
+            // Fallback: save as-is if API fails
+            sessionStorage.setItem('recon_target', target);
+            
+            // Auto-fill all target inputs
+            const inputs = document.querySelectorAll('.target-input');
+            inputs.forEach(input => {
+                input.value = target;
+            });
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = `<i class="ri-zoom-in-line me-1"></i> Resolve & Auto-fill`;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="ri-save-line"></i>`;
+            }
         }
     }
 
@@ -267,6 +456,9 @@
         const args    = argsEl ? argsEl.value.trim() : "";
         const btn     = document.getElementById(`btn_${toolId}`);
 
+        const sourcesEl = document.getElementById(`sources_${toolId}`);
+        const sources   = sourcesEl ? Array.from(sourcesEl.selectedOptions).map(opt => opt.value).join(',') : "";
+
         if (!target) {
             Swal.fire({ icon: "warning", title: "Target required", text: `Please enter a target for ${toolName}.`, timer: 2000, showConfirmButton: false });
             return;
@@ -275,7 +467,10 @@
         btn.disabled = true;
         btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Queuing…`;
 
-        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args }, `Queuing ${toolName}...`);
+        // Get domain from session for theHarvester
+        const domain = sessionStorage.getItem('recon_domain') || "";
+        
+        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args, sources, domain }, `Queuing ${toolName}...`);
 
         btn.disabled = false;
         btn.innerHTML = `<i class="ri-play-line me-1"></i> Run ${toolName}`;
@@ -320,9 +515,12 @@
                                 </td>
                                 <td><small>${new Date(j.created_at).toLocaleString()}</small></td>
                                 <td>
-                                    ${j.status === 'completed' || j.status === 'failed'
-                                        ? `<button class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="showOutput(${j.id}, '${j.tool_name}')"><i class="ri-eye-line"></i> View</button>`
-                                        : `<span class="text-muted small">—</span>`}
+                                    <div class="d-flex gap-1">
+                                        ${j.status === 'completed' || j.status === 'failed'
+                                            ? `<button class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="showOutput(${j.id}, '${j.tool_name}')"><i class="ri-eye-line"></i> View</button>`
+                                            : `<span class="text-muted small">—</span>`}
+                                        <button class="btn btn-xs btn-outline-danger py-0 px-2" onclick="deleteJob(${j.id})"><i class="ri-delete-bin-line"></i> Delete</button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -340,5 +538,40 @@
         const job = await fetchAPI(`/api/tools/${jobId}`);
         document.getElementById("outputModalBody").textContent = job?.output || "(no output)";
     }
+
+    async function deleteJob(jobId) {
+        const confirm = await Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (confirm?.isConfirmed) {
+            const res = await deleteAPI(`/api/tools/${jobId}`, "Deleting job...");
+            if (res) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: 'Job has been deleted successfully.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                loadJobs();
+            }
+        }
+    }
+
+    // Initialize Select2 for source dropdowns
+    $(document).ready(function() {
+        $('.select2-source').select2({
+            placeholder: 'Select sources',
+            allowClear: true,
+            width: '100%'
+        });
+    });
 </script>
 {% endblock %}

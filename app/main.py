@@ -13,6 +13,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Setup Jinja2 templates - point to /app/templates
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+templates.env.auto_reload = True
 
 # Mount static files - serves both /static and root files
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -38,6 +39,11 @@ async def lab(request: Request):
 @app.get("/tools.html", response_class=HTMLResponse)
 async def tools_page(request: Request):
     return templates.TemplateResponse("tools.html", {"request": request})
+
+# Serve db_playground.html from templates
+@app.get("/db_playground.html", response_class=HTMLResponse)
+async def db_playground(request: Request):
+    return templates.TemplateResponse("db_playground.html", {"request": request})
 
 
 

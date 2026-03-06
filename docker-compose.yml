@@ -1,5 +1,3 @@
-
-
 services:
   db:
     image: postgres:15
@@ -11,7 +9,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U securelens"]
+      test: [ "CMD-SHELL", "pg_isready -U securelens" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +20,7 @@ services:
     image: redis:7-alpine
     restart: always
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,6 +29,8 @@ services:
 
   web:
     build: .
+    working_dir: /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 4567 --reload --reload-dir /app
     ports:
       - "4567:4567"
     environment:
@@ -39,8 +39,9 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - SECRET_KEY=a_very_secret_key_change_in_production
+      - PYTHONUNBUFFERED=1
     volumes:
-      - .:/app
+      - .:/app:delegated
     depends_on:
       db:
         condition: service_healthy
@@ -49,9 +50,13 @@ services:
     restart: always
     networks:
       - securelens_network
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
 
   worker:
     build: .
+    working_dir: /app
     command: celery -A app.core.celery_app worker --loglevel=info
     environment:
       - DATABASE_URL=postgresql://securelens:securepassword@db:5432/securelens_db
@@ -68,9 +73,13 @@ services:
     restart: always
     networks:
       - securelens_network
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
 
 volumes:
   postgres_data:
+
 
 networks:
   securelens_network:

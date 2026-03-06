@@ -21,6 +21,8 @@ class ToolRunRequest(BaseModel):
     tool_name: str
     target: str
     args: Optional[str] = ""
+    sources: Optional[str] = ""
+    domain: Optional[str] = ""  # Original domain for tools like theHarvester
 
     @validator('target')
     def validate_target(cls, v):
@@ -34,6 +36,7 @@ class ToolJobResponse(BaseModel):
     tool_name: str
     target: str
     args: Optional[str]
+    sources: Optional[str]
     status: str
     output: Optional[str]
     created_at: str
@@ -49,6 +52,7 @@ class ToolJobResponse(BaseModel):
             tool_name=obj.tool_name,
             target=obj.target,
             args=obj.args,
+            sources=obj.sources,
             status=obj.status,
             output=obj.output,
             created_at=str(obj.created_at),
@@ -76,7 +80,12 @@ def run_tool(
     if req.tool_name not in TOOL_COMMANDS:
         raise HTTPException(status_code=400, detail=f"Unknown tool: {req.tool_name}")
 
-    job = ToolJob(tool_name=req.tool_name, target=req.target, args=req.args, status="pending")
+    # For theHarvester, use domain if provided
+    final_target = req.target
+    if req.tool_name == "theHarvester" and req.domain:
+        final_target = req.domain
+    
+    job = ToolJob(tool_name=req.tool_name, target=final_target, args=req.args, sources=req.sources, status="pending")
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -104,17 +113,41 @@ def get_job(
     return resp
 
 
+@router.delete("/{job_id}")
+def delete_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    job = db.query(ToolJob).filter(ToolJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    db.delete(job)
+    db.commit()
+    return {"status": "success", "message": f"Job {job_id} deleted."}
+
+
 @router.get("/lookup/{domain:path}")
 def lookup_domain(domain: str, current_user=Depends(get_current_user)):
     try:
         # If input looks like a URL (contains //), extract hostname
         if "//" in domain:
+            from urllib.parse import urlparse
             parsed = urlparse(domain)
             domain = parsed.hostname or domain.split('/')[0]
         
         # Further sanitize if it still has paths after it
         domain = domain.split('/')[0]
         
+        # Check if it's already an IP address
+        import re
+        ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
+
+        if re.match(ip_pattern, domain):
+            return {"domain": domain, "ip": domain, "status": "success"}
+        
+        # Resolve domain to IP
         ip = socket.gethostbyname(domain)
         return {"domain": domain, "ip": ip, "status": "success"}
     except Exception as e:

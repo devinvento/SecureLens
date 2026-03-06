@@ -71,3 +71,18 @@ async function postAPI(endpoint, payload, loadingText = null) {
     return await res.json();
 }
 
+async function deleteAPI(endpoint, loadingText = null) {
+    const token = getToken();
+    const res = await LoaderManager.fetchWithLoader(endpoint, {
+        method: "DELETE",
+        headers: {
+            "Authorization": `Bearer ${token}`
+        }
+    }, loadingText);
+    if(res.status === 401) {
+        logoutUser();
+        return null;
+    }
+    return await res.json();
+}
+

@@ -1,5 +1,7 @@
 import re
+import shlex
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 from app.db.session import SessionLocal
 from app.models.scan import Scan
 from app.models.target import Target
@@ -8,18 +10,64 @@ from app.models.tool_job import ToolJob
 import time, subprocess, redis
 from datetime import datetime
 import random
+import json
 from app.core.config import settings
 
-# Redis client for caching tool output
+# Redis client for caching tool output and scan data
 _redis = redis.from_url(settings.REDIS_URL)
+
+# Cache TTL settings (in seconds)
+CACHE_TTL = {
+    "scan_status": 300,      # 5 minutes
+    "scan_data": 600,         # 10 minutes
+    "vulnerability_list": 3600,  # 1 hour
+}
+
+
+def get_cached_scan(scan_id: int) -> dict | None:
+    """Get scan data from Redis cache."""
+    cache_key = f"scan:data:{scan_id}"
+    cached = _redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    return None
+
+
+def set_cached_scan(scan_id: int, data: dict, ttl: int = None):
+    """Set scan data in Redis cache."""
+    cache_key = f"scan:data:{scan_id}"
+    _redis.setex(cache_key, ttl or CACHE_TTL["scan_data"], json.dumps(data))
+
+
+def invalidate_scan_cache(scan_id: int):
+    """Invalidate scan cache after completion."""
+    cache_key = f"scan:data:{scan_id}"
+    _redis.delete(cache_key)
+    # Also invalidate status cache
+    status_key = f"scan:status:{scan_id}"
+    _redis.delete(status_key)
+
+
+def get_scan_status_from_cache(scan_id: int) -> str | None:
+    """Get scan status from Redis cache (fast lookup for API endpoints)."""
+    status_key = f"scan:status:{scan_id}"
+    status = _redis.get(status_key)
+    return status.decode('utf-8') if status else None
+
+
+def get_scan_vuln_count(scan_id: int) -> int | None:
+    """Get vulnerability count from cache."""
+    count_key = f"scan:vuln_count:{scan_id}"
+    count = _redis.get(count_key)
+    return int(count) if count else None
 
 
 def sanitize_input(value: str) -> str:
     """Sanitize input to prevent command injection."""
     if not value:
         return ""
-    # Only allow safe characters: alphanumeric, dots, hyphens, underscores, colons, slashes, http
-    sanitized = re.sub(r'[^a-zA-Z0-9.\-_:/]', '', value)
+    # Only allow safe characters: alphanumeric, dots, hyphens, underscores, colons, slashes, spaces, commas, http
+    sanitized = re.sub(r'[^a-zA-Z0-9.\-_:/ ,]', '', value)
     return sanitized
 
 
@@ -42,17 +90,63 @@ def validate_target(target: str) -> bool:
 @shared_task(name="app.tasks.run_scan_task")
 def run_scan_task(scan_id: int):
     db = SessionLocal()
+    
+    # Try to get from cache first
+    cached_scan = get_cached_scan(scan_id)
+    if cached_scan:
+        # If scan is already completed or running, don't reprocess
+        if cached_scan.get("status") in ["completed", "running"]:
+            db.close()
+            return f"Scan {scan_id} already {cached_scan.get('status')}"
+    
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         db.close()
         return "Scan not found"
+    
+    # Cache the scan data
+    scan_data = {
+        "id": scan.id,
+        "target_id": scan.target_id,
+        "status": "running",
+        "created_at": scan.created_at.isoformat() if scan.created_at else None
+    }
+    set_cached_scan(scan_id, scan_data)
+    
+    # Update status in cache for quick polling
+    _redis.setex(f"scan:status:{scan_id}", CACHE_TTL["scan_status"], "running")
     
     scan.status = "running"
     db.commit()
 
     # Simulate a web penetration testing scan against the target
     # In a real app we'd call Nmap, Nikto, OWASP ZAP, etc. here
-    time.sleep(10)  # mock scan time
+    target_id = scan.target_id
+    target_obj = db.query(Target).filter(Target.id == target_id).first()
+    target_url = target_obj.url if target_obj else "localhost"
+    
+    # Sanitize target (extract hostname)
+    host = re.sub(r'^https?://', '', target_url).split('/')[0].split(':')[0]
+    
+    try:
+        # Run a basic Nmap scan for the main scanner
+        # -F: Fast mode, -sV: Service version
+        cmd = ["nmap", "-F", "-sV", host]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        scan_output = result.stdout + (result.stderr if result.stderr else "")
+        
+        # Simple parsing for mock vulnerabilities
+        if "open" in scan_output.lower():
+            severities = ["Low", "Medium", "High"]
+            for i in range(random.randint(2, 5)):
+                db.add(Vulnerability(
+                    scan_id=scan.id,
+                    title=f"Port Service Discovery {i+1}",
+                    severity=random.choice(severities),
+                    description=f"Potential service identified on {host}. Summary: {scan_output[:200]}..."
+                ))
+    except Exception as e:
+        print(f"Scan error: {e}")
 
     # Generate mock vulnerabilities based on target ID or just randomly
     vulns = []
@@ -69,6 +163,15 @@ def run_scan_task(scan_id: int):
     scan.status = "completed"
     scan.completed_at = datetime.utcnow()
     db.commit()
+    
+    # Invalidate cache after completion
+    invalidate_scan_cache(scan_id)
+    # Update status cache to completed
+    _redis.setex(f"scan:status:{scan_id}", CACHE_TTL["scan_status"], "completed")
+    
+    # Cache vulnerability count for quick access
+    _redis.setex(f"scan:vuln_count:{scan_id}", CACHE_TTL["vulnerability_list"], len(vulns))
+    
     db.close()
     
     return f"Scan {scan_id} completed successfully"
@@ -79,9 +182,9 @@ def run_scan_task(scan_id: int):
 # ---------------------------------------------------------------
 TOOL_COMMANDS = {
     "nmap":           ["nmap", "{args}", "{target}"],
-    "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "all"],
+    "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "{sources}"],
     "finalrecon":     ["python3", "/opt/FinalRecon/finalrecon.py", "--url", "{target}"],
-    "amass":          ["amass", "enum", "-d", "{target}"],
+    "amass":          ["amass", "enum", "-d", "{target}", "-timeout", "60"],  # Added timeout flag
     "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/usr/share/seclists/Discovery/Web-Content/common.txt", "{args}"],
     "secretfinder":   ["python3", "/opt/SecretFinder/SecretFinder.py", "-i", "{target}", "-o", "cli"],
     "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
@@ -91,7 +194,7 @@ TOOL_COMMANDS = {
 }
 
 
-@shared_task(name="app.tasks.run_tool_task")
+@shared_task(name="app.tasks.run_tool_task", soft_time_limit=600, time_limit=700)
 def run_tool_task(job_id: int):
     import os
     db = SessionLocal()
@@ -109,14 +212,51 @@ def run_tool_task(job_id: int):
         db.close()
         return f"ToolJob {job_id} failed: Invalid target"
 
+    # Special validation for nmap - only accept IP addresses
+    if job.tool_name == "nmap":
+        ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
+        if not re.match(ip_pattern, job.target):
+            job.output = "[ERROR] Nmap only accepts IP addresses. Please enter an IP address."
+            job.status = "failed"
+            job.completed_at = datetime.utcnow()
+            db.commit()
+            db.close()
+            return f"ToolJob {job_id} failed: Nmap requires IP address"
+
     # Sanitize target and args to prevent command injection
     safe_target = sanitize_input(job.target)
     safe_args = sanitize_input(job.args or "")
+
+    # Special sanitization for theHarvester (requires domain only)
+    if job.tool_name == "theHarvester":
+        # Remove http:// or https://
+        safe_target = re.sub(r'^https?://', '', safe_target)
+        # Remove www.
+        safe_target = re.sub(r'^www\.', '', safe_target)
+        # Remove trailing slashes
+        safe_target = safe_target.rstrip('/')
+        # For theHarvester, also check if args contains domain info
+
+    # Set timeout based on tool type (some tools need more time)
+    tool_timeouts = {
+        "theHarvester": 600,   # 10 minutes
+        "amass": 900,          # 15 minutes
+        "osmedeus": 1800,      # 30 minutes
+        "nmap": 300,           # 5 minutes
+        "ffuf": 300,           # 5 minutes
+        "finalrecon": 300,     # 5 minutes
+        "secretfinder": 300,   # 5 minutes
+        "pymeta": 300,         # 5 minutes
+        "mosint": 300,         # 5 minutes
+        "ghunt": 300,          # 5 minutes
+    }
+    timeout = tool_timeouts.get(job.tool_name, 300)
 
     job.status = "running"
     db.commit()
 
     try:
+        # Handle SoftTimeLimitExceeded from Celery
         template = TOOL_COMMANDS.get(job.tool_name)
         if not template:
             raise ValueError(f"Unknown tool: {job.tool_name}")
@@ -134,27 +274,52 @@ def run_tool_task(job_id: int):
                     return f"ToolJob {job_id} failed: Tool not found"
 
         # Build command with sanitized inputs
+        safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,bufferoverun,subdomaincenter")
+        
         cmd = []
         for part in template:
-            part = part.replace("{target}", safe_target).replace("{args}", safe_args)
-            # Remove empty placeholders
-            if part and part != "{target}" and part != "{args}":
-                cmd.append(part)
+            if part == "{target}":
+                cmd.append(safe_target)
+            elif part == "{args}":
+                if safe_args:
+                    cmd.extend(shlex.split(safe_args))
+            elif part == "{sources}":
+                cmd.append(safe_sources)
+            else:
+                # Handle cases where placeholders are part of a string (less common in our current TOOL_COMMANDS but safer)
+                p = part.replace("{target}", safe_target).replace("{sources}", safe_sources)
+                if "{args}" in p:
+                    if safe_args:
+                         # This case is tricky if args are in middle of string, but our current tools don't do that
+                         p = p.replace("{args}", safe_args)
+                         cmd.extend(shlex.split(p))
+                    else:
+                         p = p.replace("{args}", "")
+                         if p: cmd.append(p)
+                else:
+                    cmd.append(p)
+
+        # Show the command in output
+        command_str = ' '.join(cmd)
+        output = f"[COMMAND] {command_str}\n\n"
 
         # Security: Use shell=False to prevent shell injection
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=300,  # 5-minute timeout
+            timeout=timeout,  # Dynamic timeout based on tool type
             shell=False,  # SECURITY: Prevent shell injection
         )
-        output = result.stdout or ""
+        output += result.stdout or ""
         if result.stderr:
             output += "\n--- STDERR ---\n" + result.stderr
 
+    except SoftTimeLimitExceeded:
+        output = "[ERROR] Task exceeded maximum execution time and was terminated."
+        job.status = "failed"
     except subprocess.TimeoutExpired:
-        output = "[ERROR] Tool timed out after 5 minutes."
+        output = f"[ERROR] Tool timed out after {timeout} seconds."
         job.status = "failed"
     except Exception as e:
         output = f"[ERROR] {str(e)}"
