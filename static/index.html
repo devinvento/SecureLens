@@ -90,6 +90,12 @@
                                             </div>
                                         </div>
 
+                                        <div id="2fa-section" class="d-none mb-3">
+                                            <label for="2fa-code" class="form-label text-primary fw-bold"><i class="ri-shield-keyhole-line align-middle me-1"></i> Two-Factor Authentication</label>
+                                            <input type="text" class="form-control" id="2fa-code" placeholder="Enter 6-digit code">
+                                            <p class="text-muted fs-12 mt-1">Please enter the code from your authenticator app.</p>
+                                        </div>
+
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" value="" id="auth-remember-check">
                                             <label class="form-check-label" for="auth-remember-check">Remember me</label>
@@ -185,9 +191,31 @@
             e.preventDefault();
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
+            const totpCode = document.getElementById("2fa-code").value;
+
+            // If 2FA section is visible, verify 2FA
+            if (!document.getElementById("2fa-section").classList.contains("d-none")) {
+                const res = await verify2FA(email, totpCode);
+                if (res.token) {
+                    window.location.href = "/dashboard.html";
+                } else {
+                    const alert = document.getElementById("loginAlert");
+                    alert.textContent = res.error;
+                    alert.classList.remove("d-none");
+                }
+                return;
+            }
+
             const res = await loginUser(email, password);
             if(res.token) {
                 window.location.href = "/dashboard.html";
+            } else if (res.status === "2FA_REQUIRED") {
+                document.getElementById("2fa-section").classList.remove("d-none");
+                document.getElementById("2fa-code").focus();
+                document.getElementById("2fa-code").required = true;
+                // Move Sign In button focus or update text
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.textContent = "Verify & Sign In";
             } else {
                 const alert = document.getElementById("loginAlert");
                 alert.textContent = res.error;

@@ -274,7 +274,7 @@ def run_tool_task(job_id: int):
                     return f"ToolJob {job_id} failed: Tool not found"
 
         # Build command with sanitized inputs
-        safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,bufferoverun,subdomaincenter")
+        safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,subdomaincenter")
         
         cmd = []
         for part in template:

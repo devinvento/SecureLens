@@ -45,6 +45,22 @@ async def tools_page(request: Request):
 async def db_playground(request: Request):
     return templates.TemplateResponse("db_playground.html", {"request": request})
 
+@app.get("/profile.html", response_class=HTMLResponse)
+async def profile_page(request: Request):
+    return templates.TemplateResponse("profile.html", {"request": request})
+
+@app.get("/roles.html", response_class=HTMLResponse)
+async def roles_page(request: Request):
+    return templates.TemplateResponse("roles.html", {"request": request})
+
+@app.get("/users.html", response_class=HTMLResponse)
+async def users_page(request: Request):
+    return templates.TemplateResponse("users.html", {"request": request})
+
+@app.get("/permissions.html", response_class=HTMLResponse)
+async def permissions_page(request: Request):
+    return templates.TemplateResponse("permissions.html", {"request": request})
+
 
 
 # Serve index.html from static folder (original format without extends)

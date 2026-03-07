@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}User Management | SecureLens{% endblock %}
+
+{% block page_title %}User Management{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Users</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header d-flex align-items-center">
+                <h5 class="card-title mb-0 flex-grow-1">System Users</h5>
+                <div class="flex-shrink-0">
+                    <button class="btn btn-success add-btn" onclick="showAddUserModal()"><i class="ri-add-line align-bottom me-1"></i> Add User</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle table-nowrap mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Email</th>
+                                <th>Roles</th>
+                                <th>2FA</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">Add User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="user-id">
+                    <div class="mb-3">
+                        <label for="user-email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="user-email" placeholder="Enter email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="user-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="user-password" placeholder="Enter password (leave empty to keep current)">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch form-switch-lg mb-3" dir="ltr">
+                            <input type="checkbox" class="form-check-input" id="user-is-active" checked>
+                            <label class="form-check-label" for="user-is-active">Is Active</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch form-switch-lg mb-3" dir="ltr">
+                            <input type="checkbox" class="form-check-input" id="user-is-superuser">
+                            <label class="form-check-label" for="user-is-superuser">Is Admin</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="saveUser()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let userModal;
+    document.addEventListener('DOMContentLoaded', async () => {
+        userModal = new bootstrap.Modal(document.getElementById('userModal'));
+        loadUsers();
+    });
+
+    async function loadUsers() {
+        const users = await fetchAPI('/api/users/', 'Loading users...');
+        if (!users) return;
+
+        const tbody = document.getElementById('users-table-body');
+        tbody.innerHTML = '';
+        
+        users.forEach(user => {
+            const tr = document.createElement('tr');
+            const rolesHtml = user.roles.map(r => `<span class="badge bg-info-subtle text-info me-1">${r}</span>`).join('');
+            const statusHtml = user.is_active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>';
+            const faHtml = user.totp_enabled ? '<i class="ri-shield-check-line text-success fs-18"></i>' : '<i class="ri-shield-cross-line text-muted fs-18"></i>';
+            
+            tr.innerHTML = `
+                <td><span class="fw-medium">${user.email}</span> ${user.is_superuser ? '<span class="badge bg-danger ms-1">Admin</span>' : ''}</td>
+                <td>${rolesHtml}</td>
+                <td class="text-center">${faHtml}</td>
+                <td>${statusHtml}</td>
+                <td>-</td>
+                <td>
+                    <button class="btn btn-sm btn-soft-primary" onclick='showEditUserModal(${JSON.stringify(user)})'><i class="ri-edit-2-line"></i> Edit</button>
+                    <button class="btn btn-sm btn-soft-danger" onclick="deleteUser(${user.id})"><i class="ri-delete-bin-line"></i> Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function showAddUserModal() {
+        document.getElementById('userModalTitle').textContent = 'Add User';
+        document.getElementById('user-id').value = '';
+        document.getElementById('user-email').value = '';
+        document.getElementById('user-password').value = '';
+        document.getElementById('user-password').required = true;
+        document.getElementById('user-is-active').checked = true;
+        document.getElementById('user-is-superuser').checked = false;
+        userModal.show();
+    }
+
+    function showEditUserModal(user) {
+        document.getElementById('userModalTitle').textContent = 'Edit User';
+        document.getElementById('user-id').value = user.id;
+        document.getElementById('user-email').value = user.email;
+        document.getElementById('user-password').value = '';
+        document.getElementById('user-password').required = false;
+        document.getElementById('user-is-active').checked = user.is_active;
+        document.getElementById('user-is-superuser').checked = user.is_superuser;
+        userModal.show();
+    }
+
+    async function saveUser() {
+        const id = document.getElementById('user-id').value;
+        const email = document.getElementById('user-email').value;
+        const password = document.getElementById('user-password').value;
+        const is_active = document.getElementById('user-is-active').checked;
+        const is_superuser = document.getElementById('user-is-superuser').checked;
+        
+        const payload = { email, is_active, is_superuser };
+        if (password) payload.password = password;
+        
+        let res;
+        if (id) {
+            res = await putAPI(`/api/users/${id}`, payload, 'Updating user...');
+        } else {
+            if (!password) {
+                Swal.fire('Error', 'Password is required for new users', 'error');
+                return;
+            }
+            res = await postAPI('/api/users/', payload, 'Creating user...');
+        }
+        
+        if (res) {
+            Swal.fire('Success', 'User saved successfully', 'success');
+            userModal.hide();
+            loadUsers();
+        }
+    }
+
+    async function deleteUser(id) {
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: "This user will be permanently removed!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (result.isConfirmed) {
+            const res = await deleteAPI(`/api/users/${id}`, 'Deleting user...');
+            if (res) {
+                Swal.fire('Deleted!', 'User has been deleted.', 'success');
+                loadUsers();
+            }
+        }
+    }
+</script>
+{% endblock %}

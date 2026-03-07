@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile | SecureLens{% endblock %}
+
+{% block page_title %}User Profile{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Profile</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="mx-auto avatar-lg mb-3">
+                    <img src="/static/assets/images/users/multi-user.jpg" alt="" class="img-fluid rounded-circle">
+                </div>
+                <h5 id="profile-email" class="mb-1 text-primary">Loading...</h5>
+                <p id="profile-roles" class="text-muted mb-3"></p>
+                <div class="mb-3">
+                    <span id="profile-status" class="badge"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="ri-shield-keyhole-line align-middle me-1"></i> Security Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h6 class="fw-bold mb-1">Two-Factor Authentication (2FA)</h6>
+                    <p class="text-muted">Enhance your account security by adding an extra layer of verification.</p>
+                    
+                    <div id="2fa-disabled-section" class="d-none">
+                        <div class="alert alert-soft-warning mb-3">
+                            2FA is currently <span class="fw-bold">DISABLED</span>.
+                        </div>
+                        <button id="btn-setup-2fa" class="btn btn-primary" onclick="setup2FA()">
+                            <i class="ri-settings-4-line align-middle me-1"></i> Setup 2FA
+                        </button>
+                    </div>
+
+                    <div id="2fa-enabled-section" class="d-none">
+                        <div class="alert alert-soft-success mb-3">
+                            Two-factor authentication is <span class="fw-bold">ENABLED</span>.
+                        </div>
+                        <button id="btn-disable-2fa" class="btn btn-danger" onclick="disable2FA()">
+                            <i class="ri-lock-unlock-line align-middle me-1"></i> Disable 2FA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2FA Setup Modal -->
+<div class="modal fade" id="setup2FAModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Setup Two-Factor Authentication</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)</p>
+                <div id="2fa-qr-container" class="mb-3">
+                    <img id="2fa-qr-image" src="" alt="QR Code" class="img-fluid">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Or enter code manually:</label>
+                    <code id="2fa-secret" class="d-block fs-14"></code>
+                </div>
+                <hr>
+                <div class="text-start">
+                    <label for="setup-token" class="form-label">Verify Code</label>
+                    <input type="text" class="form-control" id="setup-token" placeholder="Enter 6-digit code">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="enable2FA()">Confirm & Enable</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        loadProfile();
+    });
+
+    async function loadProfile() {
+        const user = await fetchAPI('/api/users/me', 'Loading profile...');
+        if (!user) return;
+
+        document.getElementById('profile-email').textContent = user.email;
+        document.getElementById('profile-roles').textContent = user.roles.join(', ');
+        
+        const statusBadge = document.getElementById('profile-status');
+        statusBadge.textContent = user.is_active ? 'Active' : 'Inactive';
+        statusBadge.className = 'badge bg-' + (user.is_active ? 'success' : 'danger');
+
+        if (user.totp_enabled) {
+            document.getElementById('2fa-enabled-section').classList.remove('d-none');
+            document.getElementById('2fa-disabled-section').classList.add('d-none');
+        } else {
+            document.getElementById('2fa-disabled-section').classList.remove('d-none');
+            document.getElementById('2fa-enabled-section').classList.add('d-none');
+        }
+    }
+
+    async function setup2FA() {
+        const res = await postAPI('/api/users/2fa/setup', {}, 'Initiating setup...');
+        if (res && res.qr_code) {
+            document.getElementById('2fa-qr-image').src = 'data:image/png;base64,' + res.qr_code;
+            document.getElementById('2fa-secret').textContent = res.secret;
+            const modal = new bootstrap.Modal(document.getElementById('setup2FAModal'));
+            modal.show();
+        }
+    }
+
+    async function enable2FA() {
+        const token = document.getElementById('setup-token').value;
+        const res = await postAPI('/api/users/2fa/enable', { token }, 'Enabling 2FA...');
+        if (res && res.message) {
+            Swal.fire('Success', res.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('setup2FAModal')).hide();
+            loadProfile();
+        } else if (res) {
+            Swal.fire('Error', res.detail || 'Activation failed', 'error');
+        }
+    }
+
+    async function disable2FA() {
+        const { value: token } = await Swal.fire({
+            title: 'Confirm Disable',
+            text: 'Enter your 6-digit 2FA code to disable it:',
+            input: 'text',
+            showCancelButton: true,
+            confirmButtonText: 'Disable',
+            dangerMode: true
+        });
+
+        if (token) {
+            const res = await postAPI('/api/users/2fa/disable', { token }, 'Disabling 2FA...');
+            if (res && res.message) {
+                Swal.fire('Disabled', res.message, 'success');
+                loadProfile();
+            } else if (res) {
+                Swal.fire('Error', res.detail || 'Disable failed', 'error');
+            }
+        }
+    }
+</script>
+{% endblock %}

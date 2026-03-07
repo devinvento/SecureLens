@@ -11,6 +11,7 @@ from app.tasks import run_tool_task, validate_target
 from app.api.deps import get_current_user
 from app.core.config import settings
 import redis
+import ipaddress
 
 router = APIRouter()
 _redis = redis.from_url(settings.REDIS_URL)
@@ -131,24 +132,29 @@ def delete_job(
 @router.get("/lookup/{domain:path}")
 def lookup_domain(domain: str, current_user=Depends(get_current_user)):
     try:
-        # If input looks like a URL (contains //), extract hostname
+        # Extract hostname if URL
         if "//" in domain:
-            from urllib.parse import urlparse
             parsed = urlparse(domain)
             domain = parsed.hostname or domain.split('/')[0]
-        
-        # Further sanitize if it still has paths after it
-        domain = domain.split('/')[0]
-        
-        # Check if it's already an IP address
-        import re
-        ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
 
-        if re.match(ip_pattern, domain):
+        # Remove paths
+        domain = domain.split('/')[0]
+
+        # Remove www.
+        if domain.startswith("www."):
+            domain = domain[4:]
+
+        # Check if already IP
+        try:
+            ipaddress.ip_address(domain)
             return {"domain": domain, "ip": domain, "status": "success"}
-        
-        # Resolve domain to IP
+        except ValueError:
+            pass
+
+        # Resolve domain
         ip = socket.gethostbyname(domain)
+
         return {"domain": domain, "ip": ip, "status": "success"}
+
     except Exception as e:
         return {"domain": domain, "ip": None, "status": "error", "message": str(e)}

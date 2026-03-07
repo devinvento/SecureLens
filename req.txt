@@ -19,3 +19,19 @@ https://github.com/mxrch/GHunt/blob/master/README.md
 
 https://github.com/j3ssie/osmedeus
 
+
+
+Recon Tool
+│
+├─ Subdomain scan
+│   ├─ Subfinder
+│   └─ Amass
+│
+├─ Port scan
+│   └─ Nmap
+│
+├─ Web scan
+│   └─ WhatWeb
+│
+└─ Vulnerability scan
+    └─ Nuclei

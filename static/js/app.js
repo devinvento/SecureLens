@@ -32,10 +32,31 @@ async function loginUser(username, password) {
         
         const data = await response.json();
         if(response.ok) {
+            if (data.status === "2FA_REQUIRED") {
+                return { status: "2FA_REQUIRED", email: data.email };
+            }
             localStorage.setItem("token", data.access_token);
             return { token: data.access_token };
         } else {
             return { error: data.detail || "Login failed" };
+        }
+    } catch (err) {
+        return { error: "Network error" };
+    }
+}
+
+async function verify2FA(email, token) {
+    try {
+        const response = await LoaderManager.fetchWithLoader("/api/auth/verify-2fa?" + new URLSearchParams({ email, token }), {
+            method: "POST"
+        }, "Verifying 2FA...");
+        
+        const data = await response.json();
+        if(response.ok) {
+            localStorage.setItem("token", data.access_token);
+            return { token: data.access_token };
+        } else {
+            return { error: data.detail || "Invalid 2FA code" };
         }
     } catch (err) {
         return { error: "Network error" };

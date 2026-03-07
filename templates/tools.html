@@ -144,13 +144,6 @@
 
 {% block content %}
 
-<!-- Info Banner -->
-<div class="alert alert-info d-flex align-items-center mb-4">
-    <i class="ri-information-line fs-20 me-2"></i>
-    <div>
-        <strong>Information Gathering Toolkit</strong> — Select a tool, enter your target, and click <strong>Run</strong>. Jobs are queued via Celery + Redis and results are saved to the database.
-    </div>
-</div>
 
 </div>
 
@@ -160,18 +153,186 @@
         <!-- Tool Cards Grid -->
         <div class="row g-3" id="toolCardsGrid">
 
-            {% set tools = [
-                {"id": "nmap",           "name": "Nmap",           "icon": "ri-router-line",        "color": "nmap",        "desc": "Port & service scanning. Fast, powerful host discovery.",      "ph": "192.168.1.1",           "args_hint": "e.g. -sS -sV -T4 -p- --open", "doc": "https://nmap.org/book/man.html"},
-                {"id": "theHarvester",   "name": "theHarvester",   "icon": "ri-mail-search-line",   "color": "harvester",   "desc": "Gather emails, subdomains & names from public sources.",          "ph": "example.com",           "args_hint": "e.g. -l -n -r", "sources": ["crtsh", "rapiddns", "duckduckgo", "waybackarchive", "bufferoverun", "subdomaincenter"], "doc": "https://github.com/laramies/theHarvester"},
-                {"id": "finalrecon",     "name": "FinalRecon",     "icon": "ri-global-line",        "color": "finalrecon",  "desc": "OSINT recon: WHOIS, SSL, headers, DNS, sub-domains.",             "ph": "https://example.com",   "args_hint": "", "doc": "https://github.com/thewhiteh4t/FinalRecon"},
-                {"id": "amass",          "name": "Amass",          "icon": "ri-sitemap-line",       "color": "amass",       "desc": "In-depth DNS enumeration & subdomain mapping.",                  "ph": "example.com",           "args_hint": "", "doc": "https://github.com/owasp-amass/amass"},
-                {"id": "ffuf",           "name": "ffuf",           "icon": "ri-search-eye-line",    "color": "ffuf",        "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing.",    "ph": "https://example.com",   "args_hint": "e.g. -fc 404", "doc": "https://github.com/ffuf/ffuf"},
-                {"id": "secretfinder",   "name": "SecretFinder",   "icon": "ri-key-2-line",         "color": "secretfinder","desc": "Find secrets & API keys hidden in JavaScript files.",            "ph": "https://example.com/app.js", "args_hint": "", "doc": "https://github.com/m4ll0k/SecretFinder"},
-                {"id": "pymeta",         "name": "PyMeta",         "icon": "ri-file-info-line",     "color": "pymeta",      "desc": "Metadata harvesting from public docs and files.",                "ph": "example.com",           "args_hint": "", "doc": "https://github.com/m8r0wn/pymeta"},
-                {"id": "mosint",         "name": "Mosint",         "icon": "ri-user-search-line",   "color": "mosint",      "desc": "Email OSINT: breach checks, social, domains & more.",            "ph": "user@example.com",      "args_hint": "", "doc": "https://github.com/alpkeskin/mosint"},
-                {"id": "ghunt",          "name": "GHunt",          "icon": "ri-google-line",        "color": "ghunt",       "desc": "Google account OSINT: profile info, maps, calendar leaks.",     "ph": "user@gmail.com",        "args_hint": "", "doc": "https://github.com/mxrch/GHunt"},
-                {"id": "osmedeus",       "name": "Osmedeus",       "icon": "ri-robot-line",         "color": "osmedeus",    "desc": "Automated recon workflow orchestrator for large-scale scans.",   "ph": "example.com",           "args_hint": "", "doc": "https://github.com/j3ssie/osmedeus"}
-            ] %}
+
+
+        {% set tools = [
+
+        {
+            "id": "nmap",
+            "name": "Nmap",
+            "icon": "https://networkwalks.com/wp-content/uploads/2021/06/Nmap-practice-lab1.png",
+            "color": "nmap",
+            "desc": "Port & service scanning. Fast, powerful host discovery.",
+            "ph": "192.168.1.1",
+            "args_hint": "e.g. -sS -sV -T4 -p- --open",
+            "doc": "https://nmap.org/book/man.html",
+            "prefer_target": "ip"
+        },
+
+        {
+            "id": "theHarvester",
+            "name": "theHarvester",
+            "icon": "https://repository-images.githubusercontent.com/1212922/0933ae00-d41e-11e9-85da-8c22b674c731",
+            "color": "harvester",
+            "desc": "Gather emails, subdomains & names from public sources.",
+            "ph": "example.com",
+            "args_hint": "e.g. -l -n -r",
+            "sources": [
+                "bing",
+                "crtsh",
+                "rapiddns",
+                "duckduckgo",
+                "waybackarchive",
+                "bufferoverun",
+                "subdomaincenter",
+
+                "baidu",
+                "bevigil",
+                "bitbucket",
+                "brave",
+                "builtwith",
+                "censys",
+                "certspotter",
+                "chaos",
+                "commoncrawl",
+                "criminalip",
+                "dehashed",
+                "dnsdumpster",
+                "fofa",
+                "fullhunt",
+                "github-code",
+                "gitlab",
+                "hackertarget",
+                "haveibeenpwned",
+                "hudsonrock",
+                "hunter",
+                "hunterhow",
+                "intelx",
+                "leakix",
+                "leaklookup",
+                "netlas",
+                "onyphe",
+                "otx",
+                "pentesttools",
+                "projectdiscovery",
+                "robtex",
+                "rocketreach",
+                "securityscorecard",
+                "securityTrails",
+                "shodan",
+                "subdomainfinderc99",
+                "thc",
+                "threatcrowd",
+                "tomba",
+                "urlscan",
+                "venacus",
+                "virustotal",
+                "whoisxml",
+                "windvane",
+                "yahoo",
+                "zoomeye"
+            ],
+            "doc": "https://github.com/laramies/theHarvester",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "finalrecon",
+            "name": "FinalRecon",
+            "icon": "ri-global-line",
+            "color": "finalrecon",
+            "desc": "OSINT recon: WHOIS, SSL, headers, DNS, sub-domains.",
+            "ph": "https://example.com",
+            "args_hint": "",
+            "doc": "https://github.com/thewhiteh4t/FinalRecon",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "amass",
+            "name": "Amass",
+            "icon": "ri-sitemap-line",
+            "color": "amass",
+            "desc": "In-depth DNS enumeration & subdomain mapping.",
+            "ph": "example.com",
+            "args_hint": "",
+            "doc": "https://github.com/owasp-amass/amass",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "ffuf",
+            "name": "ffuf",
+            "icon": "ri-search-eye-line",
+            "color": "ffuf",
+            "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing.",
+            "ph": "https://example.com",
+            "args_hint": "e.g. -fc 404",
+            "doc": "https://github.com/ffuf/ffuf",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "secretfinder",
+            "name": "SecretFinder",
+            "icon": "ri-key-2-line",
+            "color": "secretfinder",
+            "desc": "Find secrets & API keys hidden in JavaScript files.",
+            "ph": "https://example.com/app.js",
+            "args_hint": "",
+            "doc": "https://github.com/m4ll0k/SecretFinder",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "pymeta",
+            "name": "PyMeta",
+            "icon": "ri-file-info-line",
+            "color": "pymeta",
+            "desc": "Metadata harvesting from public docs and files.",
+            "ph": "example.com",
+            "args_hint": "",
+            "doc": "https://github.com/m8r0wn/pymeta",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "mosint",
+            "name": "Mosint",
+            "icon": "ri-user-search-line",
+            "color": "mosint",
+            "desc": "Email OSINT: breach checks, social, domains & more.",
+            "ph": "user@example.com",
+            "args_hint": "",
+            "doc": "https://github.com/alpkeskin/mosint",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "ghunt",
+            "name": "GHunt",
+            "icon": "ri-google-line",
+            "color": "ghunt",
+            "desc": "Google account OSINT: profile info, maps, calendar leaks.",
+            "ph": "user@gmail.com",
+            "args_hint": "",
+            "doc": "https://github.com/mxrch/GHunt",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "osmedeus",
+            "name": "Osmedeus",
+            "icon": "ri-robot-line",
+            "color": "osmedeus",
+            "desc": "Automated recon workflow orchestrator for large-scale scans.",
+            "ph": "example.com",
+            "args_hint": "",
+            "doc": "https://github.com/j3ssie/osmedeus",
+            "prefer_target": "domain"
+        }
+
+        ] %}
 
             {% for tool in tools %}
             <div class="col-lg-12 col-md-12">
@@ -179,9 +340,13 @@
                     <div class="card-body">
                         <div class="d-flex align-items-center mb-3">
                             <div class="avatar-sm me-3 flex-shrink-0">
+                                {% if '://' in tool.icon or tool.icon[0] == '/' %}
+                                <img src="{{ tool.icon }}" alt="{{ tool.name }}" class="rounded-circle" style="width: 38px; height: 38px; object-fit: cover;">
+                                {% else %}
                                 <span class="avatar-title bg-light text-dark rounded-circle fs-22">
                                     <i class="{{ tool.icon }}"></i>
                                 </span>
+                                {% endif %}
                             </div>
                             <div class="flex-grow-1">
                                 <div class="d-flex align-items-center justify-content-between">
@@ -213,6 +378,7 @@
                             <label class="form-label fw-medium mb-1">Target</label>
                             <input type="text"
                                 id="target_{{ tool.id }}"
+                                prefer_target="{{ tool.prefer_target }}"
                                 class="form-control form-control-sm target-input"
                                 placeholder="{{ tool.ph }}"
                                 readonly>
@@ -223,7 +389,7 @@
                             <label class="form-label fw-medium mb-1">Sources</label>
                             <select id="sources_{{ tool.id }}" class="form-select form-select-sm select2-source" multiple>
                                 {% for src in tool.sources %}
-                                <option value="{{ src }}" selected>{{ src }}</option>
+                                <option value="{{ src }}">{{ src }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -282,7 +448,12 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="outputModalTitle">Tool Output</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-soft-success" onclick="downloadOutput()">
+                        <i class="ri-download-line align-bottom me-1"></i>Export
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
             </div>
             <div class="modal-body p-0">
                         <pre class="output-block p-3 mb-0" id="outputModalBody">Loading...</pre>
@@ -290,6 +461,24 @@
         </div>
     </div>
 </div>
+
+<script>
+function downloadOutput() {
+    const output = document.getElementById('outputModalBody').textContent;
+    const title = document.getElementById('outputModalTitle').textContent || 'output';
+    const filename = title.toLowerCase().replace(/\s+/g, '_') + '.txt';
+    
+    const blob = new Blob([output], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+</script>
 
 {% endblock %}
 
@@ -305,45 +494,6 @@
         pollTimer = setInterval(loadJobs, 4000);
     });
 
-    // Save target to session storage and auto-fill all tool inputs
-    function saveTarget() {
-        const target = document.getElementById("globalTargetInput")?.value?.trim() || document.getElementById("globalDomainInput")?.value?.trim();
-        
-        if (!target) {
-            Swal.fire({ icon: "warning", title: "Input Required", text: "Please enter a domain or IP address.", timer: 2000, showConfirmButton: false });
-            return;
-        }
-
-        // Save to session storage
-        sessionStorage.setItem('recon_target', target);
-        
-        // Auto-fill all target inputs
-        const inputs = document.querySelectorAll('.target-input');
-        inputs.forEach(input => {
-            input.value = target;
-            input.classList.add('is-valid');
-            setTimeout(() => input.classList.remove('is-valid'), 2000);
-        });
-
-        Swal.fire({ icon: "success", title: "Target Set!", text: `${target} will be used for all tools.`, timer: 2000, showConfirmButton: false });
-    }
-
-    // Clear target from session storage
-    function clearTarget() {
-        sessionStorage.removeItem('recon_target');
-        
-        // Clear all target inputs
-        const inputs = document.querySelectorAll('.target-input');
-        inputs.forEach(input => {
-            input.value = '';
-        });
-
-        // Clear header input
-        const headerInput = document.getElementById('globalTargetInput');
-        if (headerInput) headerInput.value = '';
-
-        Swal.fire({ icon: "info", title: "Target Cleared", text: "All tool targets have been cleared.", timer: 2000, showConfirmButton: false });
-    }
 
     // Load target from session storage on page load
     function loadTargetFromSession() {
@@ -353,10 +503,15 @@
             const headerInput = document.getElementById('globalTargetInput');
             if (headerInput) headerInput.value = savedDomain || savedTarget;
             
-            // Auto-fill all target inputs
+            // Auto-fill all target inputs based on prefer_target attribute
             const inputs = document.querySelectorAll('.target-input');
             inputs.forEach(input => {
-                input.value = savedTarget;
+                const preferTarget = input.getAttribute('prefer_target') || 'domain';
+                if (preferTarget === 'ip') {
+                    input.value = savedTarget; // Use IP
+                } else {
+                    input.value = savedDomain || savedTarget; // Use domain (default)
+                }
             });
         }
     }
@@ -366,7 +521,12 @@
         const { target, domain } = e.detail;
         const inputs = document.querySelectorAll('.target-input');
         inputs.forEach(input => {
-            input.value = target;
+            const preferTarget = input.getAttribute('prefer_target') || 'domain';
+            if (preferTarget === 'ip') {
+                input.value = target; // Use IP
+            } else {
+                input.value = domain || target; // Use domain (default)
+            }
             input.classList.add('is-valid');
             setTimeout(() => input.classList.remove('is-valid'), 2000);
         });
@@ -424,10 +584,15 @@
                 sessionStorage.setItem('recon_domain', '');
             }
             
-            // Auto-fill all target inputs
+            // Auto-fill all target inputs based on prefer_target attribute
             const inputs = document.querySelectorAll('.target-input');
             inputs.forEach(input => {
-                input.value = finalTarget;
+                const preferTarget = input.getAttribute('prefer_target') || 'domain';
+                if (preferTarget === 'ip') {
+                    input.value = finalTarget; // Use IP
+                } else {
+                    input.value = target; // Use domain
+                }
                 input.classList.add('is-valid');
                 setTimeout(() => input.classList.remove('is-valid'), 2000);
             });
@@ -437,10 +602,15 @@
             // Fallback: save as-is if API fails
             sessionStorage.setItem('recon_target', target);
             
-            // Auto-fill all target inputs
+            // Auto-fill all target inputs based on prefer_target attribute
             const inputs = document.querySelectorAll('.target-input');
             inputs.forEach(input => {
-                input.value = target;
+                const preferTarget = input.getAttribute('prefer_target') || 'domain';
+                if (preferTarget === 'ip') {
+                    input.value = target; // Use IP
+                } else {
+                    input.value = target; // Use domain (same in fallback)
+                }
             });
         } finally {
             if (btn) {
