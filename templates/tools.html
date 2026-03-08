@@ -164,7 +164,7 @@
             "color": "nmap",
             "desc": "Port & service scanning. Fast, powerful host discovery.",
             "ph": "192.168.1.1",
-            "args_hint": "e.g. -sS -sV -T4 -p- --open",
+            "args_hint": "e.g. -sS -sV -T4 --script vulners",
             "doc": "https://nmap.org/book/man.html",
             "prefer_target": "ip"
         },
@@ -178,7 +178,6 @@
             "ph": "example.com",
             "args_hint": "e.g. -l -n -r",
             "sources": [
-                "bing",
                 "crtsh",
                 "rapiddns",
                 "duckduckgo",
@@ -237,35 +236,24 @@
         },
 
         {
-            "id": "finalrecon",
-            "name": "FinalRecon",
-            "icon": "ri-global-line",
-            "color": "finalrecon",
-            "desc": "OSINT recon: WHOIS, SSL, headers, DNS, sub-domains.",
-            "ph": "https://example.com",
-            "args_hint": "",
-            "doc": "https://github.com/thewhiteh4t/FinalRecon",
-            "prefer_target": "domain"
-        },
-
-        {
             "id": "amass",
             "name": "Amass",
-            "icon": "ri-sitemap-line",
+            "icon": "https://avatars.githubusercontent.com/u/128647419?s=48&v=4",
             "color": "amass",
             "desc": "In-depth DNS enumeration & subdomain mapping.",
             "ph": "example.com",
-            "args_hint": "",
+            "args_hint": "e.g. -active -brute",
             "doc": "https://github.com/owasp-amass/amass",
             "prefer_target": "domain"
         },
+
 
         {
             "id": "ffuf",
             "name": "ffuf",
             "icon": "ri-search-eye-line",
             "color": "ffuf",
-            "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing.",
+            "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing. [todo : its for find Hidden Directory]",
             "ph": "https://example.com",
             "args_hint": "e.g. -fc 404",
             "doc": "https://github.com/ffuf/ffuf",
@@ -395,7 +383,9 @@
                         </div>
                         {% endif %}
 
-                        {% if tool.args_hint %}
+
+
+                        {% if tool.args_hint is defined %}
                         <div class="mb-3">
                             <label class="form-label fw-medium mb-1">Extra Args <span class="text-muted fw-normal">(optional)</span></label>
                             <input type="text"
@@ -640,7 +630,7 @@ function downloadOutput() {
         // Get domain from session for theHarvester
         const domain = sessionStorage.getItem('recon_domain') || "";
         
-        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args, sources, domain }, `Queuing ${toolName}...`);
+        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args, sources, domain, mode: "", target_flag: "" }, `Queuing ${toolName}...`);
 
         btn.disabled = false;
         btn.innerHTML = `<i class="ri-play-line me-1"></i> Run ${toolName}`;

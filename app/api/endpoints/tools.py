@@ -24,6 +24,8 @@ class ToolRunRequest(BaseModel):
     args: Optional[str] = ""
     sources: Optional[str] = ""
     domain: Optional[str] = ""  # Original domain for tools like theHarvester
+    mode: Optional[str] = ""  # For tools like amass that have different modes (enum, intel)
+    target_flag: Optional[str] = ""  # For amass: -d for enum, -org for intel
 
     @validator('target')
     def validate_target(cls, v):
@@ -38,6 +40,8 @@ class ToolJobResponse(BaseModel):
     target: str
     args: Optional[str]
     sources: Optional[str]
+    mode: Optional[str]
+    target_flag: Optional[str]
     status: str
     output: Optional[str]
     created_at: str
@@ -54,6 +58,8 @@ class ToolJobResponse(BaseModel):
             target=obj.target,
             args=obj.args,
             sources=obj.sources,
+            mode=obj.mode,
+            target_flag=obj.target_flag,
             status=obj.status,
             output=obj.output,
             created_at=str(obj.created_at),
@@ -86,7 +92,7 @@ def run_tool(
     if req.tool_name == "theHarvester" and req.domain:
         final_target = req.domain
     
-    job = ToolJob(tool_name=req.tool_name, target=final_target, args=req.args, sources=req.sources, status="pending")
+    job = ToolJob(tool_name=req.tool_name, target=final_target, args=req.args, sources=req.sources, mode=req.mode, target_flag=req.target_flag, status="pending")
     db.add(job)
     db.commit()
     db.refresh(job)

@@ -10,6 +10,8 @@ class ToolJob(Base):
     target = Column(String, nullable=False)
     args = Column(String, default="")
     sources = Column(String, default="")
+    mode = Column(String, default="")  # For tools like amass that have different modes (enum, intel)
+    target_flag = Column(String, default="")  # For amass: -d for enum, -org for intel
     status = Column(String, default="pending")  # pending, running, completed, failed
     output = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -30,7 +30,7 @@ services:
   web:
     build: .
     working_dir: /app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 4567 --reload --reload-dir /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 4567 --reload --reload-dir /app --log-level debug
     ports:
       - "4567:4567"
     environment:
@@ -41,7 +41,7 @@ services:
       - SECRET_KEY=a_very_secret_key_change_in_production
       - PYTHONUNBUFFERED=1
     volumes:
-      - .:/app:delegated
+      - .:/app
     depends_on:
       db:
         condition: service_healthy

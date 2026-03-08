@@ -183,8 +183,7 @@ def run_scan_task(scan_id: int):
 TOOL_COMMANDS = {
     "nmap":           ["nmap", "{args}", "{target}"],
     "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "{sources}"],
-    "finalrecon":     ["python3", "/opt/FinalRecon/finalrecon.py", "--url", "{target}"],
-    "amass":          ["amass", "enum", "-d", "{target}", "-timeout", "60"],  # Added timeout flag
+    "amass":          ["amass", "{mode}", "{args}", "{target_flag}", "{target}"],  # Mode: enum or intel
     "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/usr/share/seclists/Discovery/Web-Content/common.txt", "{args}"],
     "secretfinder":   ["python3", "/opt/SecretFinder/SecretFinder.py", "-i", "{target}", "-o", "cli"],
     "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
@@ -275,6 +274,8 @@ def run_tool_task(job_id: int):
 
         # Build command with sanitized inputs
         safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,subdomaincenter")
+        safe_mode = sanitize_input(job.mode or "enum")  # Default to enum mode for amass
+        safe_target_flag = sanitize_input(job.target_flag or "-d")  # Default to -d for enum
         
         cmd = []
         for part in template:
@@ -285,9 +286,13 @@ def run_tool_task(job_id: int):
                     cmd.extend(shlex.split(safe_args))
             elif part == "{sources}":
                 cmd.append(safe_sources)
+            elif part == "{mode}":
+                cmd.append(safe_mode)
+            elif part == "{target_flag}":
+                cmd.append(safe_target_flag)
             else:
                 # Handle cases where placeholders are part of a string (less common in our current TOOL_COMMANDS but safer)
-                p = part.replace("{target}", safe_target).replace("{sources}", safe_sources)
+                p = part.replace("{target}", safe_target).replace("{sources}", safe_sources).replace("{mode}", safe_mode).replace("{target_flag}", safe_target_flag)
                 if "{args}" in p:
                     if safe_args:
                          # This case is tricky if args are in middle of string, but our current tools don't do that
