@@ -79,6 +79,27 @@ RUN git clone https://github.com/urbanadventurer/WhatWeb.git /opt/whatweb && \
     ln -s /usr/local/bin/whatweb /usr/bin/whatweb || true
 
 
+RUN go install github.com/projectdiscovery/httpx/cmd/httpx@latest && \
+    mv /root/go/bin/httpx /usr/local/bin/httpx
+
+# ---------------------------
+# Install Masscan
+# ---------------------------
+RUN git clone https://github.com/robertdavidgraham/masscan.git /opt/masscan && \
+    cd /opt/masscan && \
+    make -j && \
+    cp bin/masscan /usr/local/bin/masscan
+
+
+
+
+
+
+
+
+
+
+
 
 # ---------------------------
 # Copy project

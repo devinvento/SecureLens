@@ -56,10 +56,10 @@
                     <div class="collapse menu-dropdown" id="sidebarTools">
                         <ul class="nav nav-sm flex-column">
                             <li class="nav-item">
-                                <a href="/tools/enumeration.html" class="nav-link" data-key="t-enumeration"> <i class="ri-router-line me-1"></i> Enumeration </a>
+                                <a href="/tools/scanning.html" class="nav-link" data-key="t-scanning"> <i class="ri-radar-line me-1"></i> Scanning </a>
                             </li>
                             <li class="nav-item">
-                                <a href="/tools/scanning.html" class="nav-link" data-key="t-scanning"> <i class="ri-radar-line me-1"></i> Scanning </a>
+                                <a href="/tools/enumeration.html" class="nav-link" data-key="t-enumeration"> <i class="ri-router-line me-1"></i> Enumeration </a>
                             </li>
                             <li class="nav-item">
                                 <a href="/tools/information-gathering.html" class="nav-link" data-key="t-infogather"> <i class="ri-search-eye-line me-1"></i> Information Gathering </a>
@@ -121,3 +121,45 @@
 
     <div class="sidebar-background"></div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const currentPage = document.body.getAttribute('data-page') || 'dashboard';
+    
+    // Map page IDs to their corresponding menu links
+    const pageMap = {
+        'dashboard': '/dashboard.html',
+        'scans': '/scans.html',
+        'lab': '/lab.html',
+        'scanning': '/tools/scanning.html',
+        'enumeration': '/tools/enumeration.html',
+        'information-gathering': '/tools/information-gathering.html',
+        'web-fuzzing': '/tools/web-fuzzing.html',
+        'vulnerability-assessment': '/tools/vulnerability-assessment.html',
+        'db_playground': '/db_playground.html',
+        'users': '/users.html',
+        'roles': '/roles.html',
+        'permissions': '/permissions.html',
+        'profile': '/profile.html'
+    };
+    
+    const targetHref = pageMap[currentPage];
+    if (targetHref) {
+        // Find the nav-link that matches the current page
+        document.querySelectorAll('.navbar-nav .nav-link').forEach(function(link) {
+            if (link.getAttribute('href') === targetHref) {
+                link.classList.add('active');
+                // If parent menu dropdown, also highlight parent
+                const parentCollapse = link.closest('.collapse');
+                if (parentCollapse) {
+                    const parentLink = document.querySelector(`[href="#${parentCollapse.id}"]`);
+                    if (parentLink) {
+                        parentLink.classList.add('active');
+                        parentCollapse.classList.add('show');
+                    }
+                }
+            }
+        });
+    }
+});
+</script>

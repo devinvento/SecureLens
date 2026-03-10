@@ -275,6 +275,7 @@ def run_scan_task(scan_id: int):
 # ---------------------------------------------------------------
 TOOL_COMMANDS = {
     "nmap":           ["nmap", "{args}", "{target}"],
+    "masscan":        ["masscan", "{args}", "{target}"],
     "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "{sources}"],
     "amass":          ["amass", "{mode}", "{args}", "{target_flag}", "{target}"],  # Mode: enum or intel
     "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/usr/share/seclists/Discovery/Web-Content/common.txt", "{args}"],
@@ -282,7 +283,7 @@ TOOL_COMMANDS = {
     "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
     "mosint":         ["mosint", "{target}"],
     "ghunt":          ["python3", "/opt/ghunt/main.py", "email", "{target}"],
-    "osmedeus":       ["osmedeus", "scan", "-t", "{target}"],
+    "osmedeus":       ["osmedeus", "scan", "-t", "{target}"]
 }
 
 
@@ -369,6 +370,11 @@ def run_tool_task(job_id: int):
         safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,subdomaincenter")
         safe_mode = sanitize_input(job.mode or "enum")  # Default to enum mode for amass
         safe_target_flag = sanitize_input(job.target_flag or "-d")  # Default to -d for enum
+        
+        # Default args for specific tools
+        safe_args = job.args
+        if job.tool_name == "masscan" and not safe_args:
+            safe_args = "-p1-10000"  # Default ports for masscan
         
         cmd = []
         for part in template:
