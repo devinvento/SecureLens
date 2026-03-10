@@ -20,9 +20,6 @@
     }
     .tool-card.nmap        { border-top-color: #0ab39c; }
     .tool-card.masscan     { border-top-color: #f06548; }
-    .tool-card.naabu       { border-top-color: #405189; }
-    .tool-card.unicornscan { border-top-color: #6f42c1; }
-    .tool-card.rustscan   { border-top-color: #dc3545; }
 
     .output-block {
         background: #0d1117;
@@ -41,6 +38,10 @@
     .doc-link {
         position: relative;
         cursor: pointer;
+        z-index: 1001;
+    }
+    .tool-card .card-body {
+        overflow: visible;
     }
     .custom-tooltip {
         position: absolute;
@@ -163,41 +164,6 @@
             "prefer_target": "ip"
         },
 
-        {
-            "id": "naabu",
-            "name": "Naabu",
-            "icon": "ri-speed-up-line",
-            "color": "naabu",
-            "desc": "Fast port scanner using go. Simple and reliable.",
-            "ph": "example.com",
-            "args_hint": "e.g. -top-ports 100",
-            "doc": "https://github.com/projectdiscovery/naabu",
-            "prefer_target": "domain"
-        },
-
-        {
-            "id": "unicornscan",
-            "name": "Unicornscan",
-            "icon": "ri-wifi-line",
-            "color": "unicornscan",
-            "desc": "Asynchronous TCP port scanner with application layer probes.",
-            "ph": "192.168.1.1",
-            "args_hint": "e.g. -p1-1000 -v",
-            "doc": "https://github.com/unicornscan/unicornscan",
-            "prefer_target": "ip"
-        },
-
-        {
-            "id": "rustscan",
-            "name": "RustScan",
-            "icon": "ri-flashlight-line",
-            "color": "rustscan",
-            "desc": "Modern, ultra-fast port scanner. Drops permissions when done.",
-            "ph": "192.168.1.1",
-            "args_hint": "e.g. -b 4500 -t 2000",
-            "doc": "https://github.com/RustScan/RustScan",
-            "prefer_target": "ip"
-        }
 
         ] %}
 
@@ -425,7 +391,7 @@ function downloadOutput() {
         const statusColor = { pending: "secondary", running: "primary", completed: "success", failed: "danger" };
         const statusIcon  = { pending: "ri-time-line", running: "ri-loader-4-line spin", completed: "ri-check-line", failed: "ri-close-line" };
 
-        const toolIds = ['nmap', 'masscan', 'naabu', 'unicornscan', 'rustscan'];
+        const toolIds = ['nmap', 'masscan'];
         
         const filteredJobs = jobs.filter(j => toolIds.includes(j.tool_name));
 

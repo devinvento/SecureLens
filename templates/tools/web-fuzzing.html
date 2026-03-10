@@ -43,6 +43,10 @@
     .doc-link {
         position: relative;
         cursor: pointer;
+        z-index: 1001;
+    }
+    .tool-card .card-body {
+        overflow: visible;
     }
     .custom-tooltip {
         position: absolute;
@@ -150,7 +154,16 @@
             "ph": "https://example.com",
             "args_hint": "e.g. -fc 404 -w wordlist.txt",
             "doc": "https://github.com/ffuf/ffuf",
-            "prefer_target": "domain"
+            "prefer_target": "domain",
+            "presets": [
+                { "name": "Directory Scan", "args": "-u https://TARGET/FUZZ -w /opt/SecLists/Discovery/Web-Content/common.txt -fc 404" },
+                { "name": "Parameter Fuzzing", "args": "-u https://TARGET/?FUZZ=value -w /opt/SecLists/Discovery/Web-Content/burp-parameter-names.txt -fc 404" },
+                { "name": "Subdomain VHost", "args": "-u https://TARGET -H \"Host: FUZZ.TARGET\" -w /opt/SecLists/Discovery/DNS/subdomains-top1million-5000.txt -fs 4242" },
+                { "name": "Extension Backups", "args": "-u https://TARGET/FUZZ -w /opt/SecLists/Discovery/Web-Content/common.txt -e .bak,.zip,.old,.tar,.gz,.sql" },
+                { "name": "Recursive Dir", "args": "-u https://TARGET/FUZZ -w /opt/SecLists/Discovery/Web-Content/raft-medium-directories.txt -recursion -recursion-depth 2 -fc 404" },
+                { "name": "API Endpoints", "args": "-u https://TARGET/API/FUZZ -w /opt/SecLists/Discovery/Web-Content/api/api-endpoints.txt -fc 404" },
+                { "name": "Rate Limited", "args": "-u https://TARGET/FUZZ -w /opt/SecLists/Discovery/Web-Content/common.txt -rate 10" }
+            ]
         },
 
         {
@@ -281,6 +294,17 @@
                         </div>
 
                         {% if tool.args_hint is defined %}
+                        {% if tool.presets is defined %}
+                        <div class="mb-2">
+                            <label class="form-label fw-medium mb-1">Scan Template <span class="text-muted">(presets)</span></label>
+                            <select id="preset_{{ tool.id }}" class="form-select form-select-sm" onchange="applyPreset('{{ tool.id }}', '{{ tool.name }}')">
+                                <option value="">-- Select a preset --</option>
+                                {% for preset in tool.presets %}
+                                <option value="{{ preset.args }}">{{ preset.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
                         <div class="mb-3">
                             <label class="form-label fw-medium mb-1">Extra Args <span class="text-muted fw-normal">(optional)</span></label>
                             <input type="text"
@@ -410,6 +434,21 @@ function downloadOutput() {
             setTimeout(() => input.classList.remove('is-valid'), 2000);
         });
     });
+
+    function applyPreset(toolId, toolName) {
+        const presetSelect = document.getElementById(`preset_${toolId}`);
+        const argsInput = document.getElementById(`args_${toolId}`);
+        
+        if (presetSelect && argsInput) {
+            const selectedValue = presetSelect.value;
+            if (selectedValue) {
+                const targetInput = document.getElementById(`target_${toolId}`);
+                const targetValue = targetInput ? targetInput.value : '';
+                let args = selectedValue.replace(/TARGET/g, targetValue);
+                argsInput.value = args;
+            }
+        }
+    }
 
     async function runTool(toolId, toolName) {
         const target = document.getElementById(`target_${toolId}`)?.value?.trim();

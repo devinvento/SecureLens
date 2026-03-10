@@ -2,6 +2,7 @@ import re
 import shlex
 import base64
 from celery import shared_task
+from app.core.helpers import check_http_protocol
 from celery.exceptions import SoftTimeLimitExceeded
 from app.db.session import SessionLocal
 from app.models.scan import Scan
@@ -278,10 +279,10 @@ TOOL_COMMANDS = {
     "masscan":        ["masscan", "{args}", "{target}"],
     "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "{sources}"],
     "amass":          ["amass", "{mode}", "{args}", "{target_flag}", "{target}"],  # Mode: enum or intel
-    "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/usr/share/seclists/Discovery/Web-Content/common.txt", "{args}"],
+    "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
     "secretfinder":   ["python3", "/opt/SecretFinder/SecretFinder.py", "-i", "{target}", "-o", "cli"],
     "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
-    "mosint":         ["mosint", "{target}"],
+    "mosint":         ["mosint","-t", "{target}"],
     "ghunt":          ["python3", "/opt/ghunt/main.py", "email", "{target}"],
     "osmedeus":       ["osmedeus", "scan", "-t", "{target}"]
 }
@@ -330,13 +331,17 @@ def run_tool_task(job_id: int):
         safe_target = safe_target.rstrip('/')
         # For theHarvester, also check if args contains domain info
 
+    # Special handling for ffuf - check http/https and use working protocol
+    if job.tool_name == "ffuf":
+        safe_target = check_http_protocol(safe_target)
+
     # Set timeout based on tool type (some tools need more time)
     tool_timeouts = {
         "theHarvester": 600,   # 10 minutes
         "amass": 900,          # 15 minutes
         "osmedeus": 1800,      # 30 minutes
         "nmap": 300,           # 5 minutes
-        "ffuf": 300,           # 5 minutes
+        "ffuf": 2000,           # 5 minutes
         "finalrecon": 300,     # 5 minutes
         "secretfinder": 300,   # 5 minutes
         "pymeta": 300,         # 5 minutes
@@ -354,9 +359,10 @@ def run_tool_task(job_id: int):
         if not template:
             raise ValueError(f"Unknown tool: {job.tool_name}")
 
-        # Check if tool path exists
+        # Check if tool binary exists (only for /opt/tools/ and /usr/local/bin/ paths)
         for part in template:
-            if part.startswith('/opt/') or part.startswith('/usr/'):
+            # Only check for actual binary tool paths, not wordlists/data directories
+            if (part.startswith('/opt/tools/') or part.startswith('/usr/local/bin/')):
                 tool_path = part.split()[1] if ' ' in part else part
                 if not os.path.exists(tool_path):
                     job.output = f"[ERROR] Tool not found: {job.tool_name}. Please ensure the tool is installed."

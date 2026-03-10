@@ -79,9 +79,6 @@ RUN git clone https://github.com/urbanadventurer/WhatWeb.git /opt/whatweb && \
     ln -s /usr/local/bin/whatweb /usr/bin/whatweb || true
 
 
-RUN go install github.com/projectdiscovery/httpx/cmd/httpx@latest && \
-    mv /root/go/bin/httpx /usr/local/bin/httpx
-
 # ---------------------------
 # Install Masscan
 # ---------------------------
@@ -92,12 +89,17 @@ RUN git clone https://github.com/robertdavidgraham/masscan.git /opt/masscan && \
 
 
 
+# ---------------------------
+# Install ffuf
+# ---------------------------
+RUN go install github.com/ffuf/ffuf@latest && \
+    mv /root/go/bin/ffuf /usr/local/bin/ffuf
 
+# ---------------------------
+# Install SecLists
+# ---------------------------
 
-
-
-
-
+RUN git clone https://github.com/danielmiessler/SecLists.git /opt/SecLists
 
 
 

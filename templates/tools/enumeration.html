@@ -20,9 +20,6 @@
     }
     .tool-card.amass      { border-top-color: #299cdb; }
     .tool-card.theHarvester { border-top-color: #405189; }
-    .tool-card.subfinder { border-top-color: #f06548; }
-    .tool-card.assetfinder { border-top-color: #6f42c1; }
-    .tool-card.findomain  { border-top-color: #20c997; }
 
     .output-block {
         background: #0d1117;
@@ -41,6 +38,10 @@
     .doc-link {
         position: relative;
         cursor: pointer;
+        z-index: 1001;
+    }
+    .tool-card .card-body {
+        overflow: visible;
     }
     .custom-tooltip {
         position: absolute;
@@ -215,43 +216,8 @@
             ],
             "doc": "https://github.com/laramies/theHarvester",
             "prefer_target": "domain"
-        },
-
-        {
-            "id": "subfinder",
-            "name": "Subfinder",
-            "icon": "ri-link-unlink-m",
-            "color": "subfinder",
-            "desc": "Fast passive subdomain enumeration tool from passive sources.",
-            "ph": "example.com",
-            "args_hint": "e.g. -recursive -silent",
-            "doc": "https://github.com/projectdiscovery/subfinder",
-            "prefer_target": "domain"
-        },
-
-        {
-            "id": "assetfinder",
-            "name": "Assetfinder",
-            "icon": "ri-global-line",
-            "color": "assetfinder",
-            "desc": "Find related domains and subdomains from various sources.",
-            "ph": "example.com",
-            "args_hint": "e.g. --subs-only",
-            "doc": "https://github.com/tomnomnom/assetfinder",
-            "prefer_target": "domain"
-        },
-
-        {
-            "id": "findomain",
-            "name": "Findomain",
-            "icon": "ri-search-line",
-            "color": "findomain",
-            "desc": "Cross-platform subdomain enumeration tool using multiple APIs.",
-            "ph": "example.com",
-            "args_hint": "e.g. -q -t",
-            "doc": "https://github.com/findomain/findomain",
-            "prefer_target": "domain"
         }
+
 
         ] %}
 
@@ -493,7 +459,7 @@ function downloadOutput() {
         const statusColor = { pending: "secondary", running: "primary", completed: "success", failed: "danger" };
         const statusIcon  = { pending: "ri-time-line", running: "ri-loader-4-line spin", completed: "ri-check-line", failed: "ri-close-line" };
 
-        const toolIds = ['amass', 'theHarvester', 'subfinder', 'assetfinder', 'findomain'];
+        const toolIds = ['amass', 'theHarvester'];
         
         const filteredJobs = jobs.filter(j => toolIds.includes(j.tool_name));
 
