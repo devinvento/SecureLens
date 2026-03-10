@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}Information Gathering | SecureLens{% endblock %}
+{% block page_title %}OSINT & Information Gathering{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item active">Tools</li>
+<li class="breadcrumb-item active">Information Gathering</li>
+{% endblock %}
+
+{% block custom_css %}
+<style>
+    .tool-card {
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        border-top: 3px solid transparent;
+    }
+    .tool-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+    }
+    .tool-card.mosint      { border-top-color: #20c997; }
+    .tool-card.ghunt       { border-top-color: #fd7e14; }
+    .tool-card.sherlock    { border-top-color: #405189; }
+    .tool-card.socialscan  { border-top-color: #6f42c1; }
+    .tool-card.h8mail      { border-top-color: #0dcaf0; }
+    .tool-card.emailfinder { border-top-color: #e83e8c; }
+
+    .output-block {
+        background: #0d1117;
+        color: #c9d1d9;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+    .status-badge { font-size: 11px; }
+    .job-row { border-bottom: 1px solid #f0f0f0; }
+    .job-row:last-child { border-bottom: none; }
+
+    .doc-link {
+        position: relative;
+        cursor: pointer;
+    }
+    .custom-tooltip {
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        width: 280px;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        pointer-events: none;
+        text-align: left;
+    }
+    .custom-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -6px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+    }
+    .doc-link:hover .custom-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+    .tooltip-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 6px;
+    }
+    .tooltip-header i {
+        font-size: 18px;
+        color: #38bdf8;
+        margin-right: 8px;
+    }
+    .tooltip-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #f1f5f9;
+        margin: 0;
+    }
+    .tooltip-body {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: #cbd5e1;
+    }
+    .tooltip-footer {
+        margin-top: 10px;
+        font-size: 0.75rem;
+        color: #38bdf8;
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+    }
+    .category-header {
+        background: linear-gradient(135deg, #405189 0%, #2d3561 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        color: white;
+    }
+    .category-header h3 {
+        margin: 0;
+        font-weight: 700;
+    }
+    .category-header p {
+        margin: 8px 0 0 0;
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="category-header">
+    <h3><i class="ri-search-eye-line me-2"></i>OSINT & Information Gathering</h3>
+    <p>Email OSINT, username enumeration, and public information discovery</p>
+</div>
+
+<div class="row">
+    <div class="col-4">
+        <div class="row g-3" id="toolCardsGrid">
+
+        {% set tools = [
+        
+        {
+            "id": "mosint",
+            "name": "Mosint",
+            "icon": "ri-user-search-line",
+            "color": "mosint",
+            "desc": "Email OSINT: breach checks, social profiles, domains & more.",
+            "ph": "user@example.com",
+            "args_hint": "",
+            "doc": "https://github.com/alpkeskin/mosint",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "ghunt",
+            "name": "GHunt",
+            "icon": "ri-google-line",
+            "color": "ghunt",
+            "desc": "Google account OSINT: profile info, maps, calendar leaks.",
+            "ph": "user@gmail.com",
+            "args_hint": "",
+            "doc": "https://github.com/mxrch/GHunt",
+            "prefer_target": "domain",
+            "needs_credentials": true
+        },
+
+        {
+            "id": "sherlock",
+            "name": "Sherlock",
+            "icon": "ri-user-settings-line",
+            "color": "sherlock",
+            "desc": "Hunt down social media accounts by username across social networks.",
+            "ph": "username",
+            "args_hint": "e.g. --timeout 10",
+            "doc": "https://github.com/sherlock-project/sherlock",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "socialscan",
+            "name": "Socialscan",
+            "icon": "ri-briefcase-line",
+            "color": "socialscan",
+            "desc": "Check email or username availability across social networks.",
+            "ph": "email@example.com",
+            "args_hint": "e.g. --lookup-only",
+            "doc": "https://github.com/躯体/socialscan",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "h8mail",
+            "name": "H8mail",
+            "icon": "ri-mail-line",
+            "color": "h8mail",
+            "desc": "Email OSINT and breach hunting tool. Find compromised credentials.",
+            "ph": "email@example.com",
+            "args_hint": "e.g. -k",
+            "doc": "https://github.com/khast3x/h8mail",
+            "prefer_target": "domain"
+        },
+
+        {
+            "id": "emailfinder",
+            "name": "EmailFinder",
+            "icon": "ri-at-line",
+            "color": "emailfinder",
+            "desc": "Find email addresses from a domain using multiple sources.",
+            "ph": "example.com",
+            "args_hint": "",
+            "doc": "https://github.com/Josue87/EmailFinder",
+            "prefer_target": "domain"
+        }
+
+        ] %}
+
+            {% for tool in tools %}
+            <div class="col-lg-12 col-md-12">
+                <div class="card tool-card {{ tool.color }}">
+                    <div class="card-body pb-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#collapse_{{ tool.id }}" aria-expanded="false" aria-controls="collapse_{{ tool.id }}">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="avatar-sm me-3 flex-shrink-0">
+                                {% if '://' in tool.icon or tool.icon[0] == '/' %}
+                                <img src="{{ tool.icon }}" alt="{{ tool.name }}" class="rounded-circle" style="width: 38px; height: 38px; object-fit: cover;">
+                                {% else %}
+                                <span class="avatar-title bg-light text-dark rounded-circle fs-22">
+                                    <i class="{{ tool.icon }}"></i>
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <h6 class="mb-0 fw-bold">{{ tool.name }}</h6>
+                                    {% if tool.doc %}
+                                    <div class="doc-link" onclick="event.stopPropagation();">
+                                        <i class="ri-information-line text-primary fs-15"></i>
+                                        <div class="custom-tooltip">
+                                            <div class="tooltip-header">
+                                                <i class="ri-book-read-line"></i>
+                                                <h6 class="tooltip-title">{{ tool.name }}</h6>
+                                            </div>
+                                            <div class="tooltip-body">
+                                                Official documentation and manual for <b>{{ tool.name }}</b>. Click the icon to visit the external site for parameters and examples.
+                                            </div>
+                                            <div class="tooltip-footer">
+                                                <i class="ri-external-link-line me-1"></i> Visit Documentation
+                                            </div>
+                                        </div>
+                                        <a href="{{ tool.doc }}" target="_blank" class="stretched-link"></a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">{{ tool.desc }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="collapse_{{ tool.id }}" class="collapse">
+                        <div class="card-body pt-0 mt-n1">
+                            <div class="mb-2">
+                                <label class="form-label fw-medium mb-1">Target</label>
+                            <input type="text"
+                                id="target_{{ tool.id }}"
+                                prefer_target="{{ tool.prefer_target }}"
+                                class="form-control form-control-sm target-input"
+                                placeholder="{{ tool.ph }}"
+                                readonly>
+                        </div>
+
+                        {% if tool.needs_credentials %}
+                        <div class="mb-3" id="cred_section_{{ tool.id }}">
+                            <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.8rem;">
+                                <strong>Credentials Needed</strong><br>
+                                {{ tool.name }} needs a Google account's OAuth credentials.<br>
+                                This usually involves a <code>credentials.json</code> file for Google API access.
+                            </div>
+                            <label class="form-label fw-medium mb-1">Paste credentials.json content <span class="text-muted fw-normal">(leave blank if already saved)</span></label>
+                            <textarea id="cred_{{ tool.id }}" class="form-control form-control-sm" rows="3" placeholder='{"installed":{"client_id":"...","project_id":"..."}}'></textarea>
+                        </div>
+                        {% endif %}
+
+                        {% if tool.args_hint is defined %}
+                        <div class="mb-3">
+                            <label class="form-label fw-medium mb-1">Extra Args <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="text"
+                                id="args_{{ tool.id }}"
+                                class="form-control form-control-sm"
+                                placeholder="{{ tool.args_hint }}">
+                        </div>
+                        {% endif %}
+
+                        <button class="btn btn-sm btn-success w-100 mt-2"
+                                id="btn_{{ tool.id }}"
+                                onclick="runTool('{{ tool.id }}', '{{ tool.name }}')">
+                            <i class="ri-play-line me-1"></i> Run {{ tool.name }}
+                        </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-8">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <h5 class="card-title mb-0 flex-grow-1">
+                            <i class="ri-history-line me-2"></i>Job Queue & Results
+                        </h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadJobs()">
+                            <i class="ri-refresh-line"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body p-0" id="jobsPanel">
+                        <div class="text-center text-muted py-4">
+                            <i class="ri-database-2-line fs-36 d-block mb-2"></i>No jobs yet. Run a tool above.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Output Modal -->
+<div class="modal fade" id="outputModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="outputModalTitle">Tool Output</h5>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-soft-success" onclick="downloadOutput()">
+                        <i class="ri-download-line align-bottom me-1"></i>Export
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0">
+                        <pre class="output-block p-3 mb-0" id="outputModalBody">Loading...</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function downloadOutput() {
+    const output = document.getElementById('outputModalBody').textContent;
+    const title = document.getElementById('outputModalTitle').textContent || 'output';
+    const filename = title.toLowerCase().replace(/\s+/g, '_') + '.txt';
+    
+    const blob = new Blob([output], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+</script>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let pollTimer = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        if (!checkAuth()) return;
+        loadJobs();
+        loadTargetFromSession();
+        
+        const ghuntCred = localStorage.getItem('cred_ghunt');
+        if (ghuntCred) {
+            const credEl = document.getElementById('cred_ghunt');
+            if (credEl) {
+                credEl.placeholder = "Credentials saved in browser. Paste new JSON to override.";
+            }
+        }
+        
+        pollTimer = setInterval(loadJobs, 4000);
+    });
+
+    function loadTargetFromSession() {
+        const savedTarget = sessionStorage.getItem('recon_target');
+        const savedDomain = sessionStorage.getItem('recon_domain');
+        if (savedTarget) {
+            const headerInput = document.getElementById('globalTargetInput');
+            if (headerInput) headerInput.value = savedDomain || savedTarget;
+            
+            const inputs = document.querySelectorAll('.target-input');
+            inputs.forEach(input => {
+                const preferTarget = input.getAttribute('prefer_target') || 'domain';
+                if (preferTarget === 'ip') {
+                    input.value = savedTarget;
+                } else {
+                    input.value = savedDomain || savedTarget;
+                }
+            });
+        }
+    }
+
+    window.addEventListener('targetResolved', function(e) {
+        const { target, domain } = e.detail;
+        const inputs = document.querySelectorAll('.target-input');
+        inputs.forEach(input => {
+            const preferTarget = input.getAttribute('prefer_target') || 'domain';
+            if (preferTarget === 'ip') {
+                input.value = target;
+            } else {
+                input.value = domain || target;
+            }
+            input.classList.add('is-valid');
+            setTimeout(() => input.classList.remove('is-valid'), 2000);
+        });
+    });
+
+    async function runTool(toolId, toolName) {
+        const target = document.getElementById(`target_${toolId}`)?.value?.trim();
+        const argsEl  = document.getElementById(`args_${toolId}`);
+        const args    = argsEl ? argsEl.value.trim() : "";
+        const btn     = document.getElementById(`btn_${toolId}`);
+
+        if (!target) {
+            Swal.fire({ icon: "warning", title: "Target required", text: `Please enter a target for ${toolName}.`, timer: 2000, showConfirmButton: false });
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Queuing…`;
+
+        const domain = sessionStorage.getItem('recon_domain') || "";
+        
+        let credentials = "";
+        const credEl = document.getElementById(`cred_${toolId}`);
+        if (credEl) {
+            credentials = credEl.value.trim();
+            if (credentials) {
+                localStorage.setItem(`cred_${toolId}`, credentials);
+            } else {
+                credentials = localStorage.getItem(`cred_${toolId}`) || "";
+            }
+        }
+        
+        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args, sources: "", domain, mode: "", target_flag: "", credentials: credentials }, `Queuing ${toolName}...`);
+
+        btn.disabled = false;
+        btn.innerHTML = `<i class="ri-play-line me-1"></i> Run ${toolName}`;
+
+        if (result) {
+            Swal.fire({ icon: "success", title: "Job queued!", text: `${toolName} job #${result.id} is now pending.`, timer: 2500, showConfirmButton: false });
+            loadJobs();
+        }
+    }
+
+    async function loadJobs() {
+        const jobs = await fetchAPI("/api/tools/");
+        if (!jobs) return;
+
+        const panel = document.getElementById("jobsPanel");
+        if (jobs.length === 0) {
+            panel.innerHTML = `<div class="text-center text-muted py-4"><i class="ri-database-2-line fs-36 d-block mb-2"></i>No jobs yet. Run a tool above.</div>`;
+            return;
+        }
+
+        const statusColor = { pending: "secondary", running: "primary", completed: "success", failed: "danger" };
+        const statusIcon  = { pending: "ri-time-line", running: "ri-loader-4-line spin", completed: "ri-check-line", failed: "ri-close-line" };
+
+        const toolIds = ['mosint', 'ghunt', 'sherlock', 'socialscan', 'h8mail', 'emailfinder'];
+        
+        const filteredJobs = jobs.filter(j => toolIds.includes(j.tool_name));
+
+        if (filteredJobs.length === 0) {
+            panel.innerHTML = `<div class="text-center text-muted py-4"><i class="ri-database-2-line fs-36 d-block mb-2"></i>No jobs yet. Run a tool above.</div>`;
+            return;
+        }
+
+        panel.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th><th>Tool</th><th>Target</th><th>Status</th><th>Started</th><th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredJobs.map(j => `
+                            <tr class="job-row">
+                                <td><small class="text-muted">${j.id}</small></td>
+                                <td><span class="fw-medium">${j.tool_name}</span></td>
+                                <td><code class="small">${j.target}</code></td>
+                                <td>
+                                    <span class="badge bg-${statusColor[j.status] || 'secondary'} status-badge">
+                                        <i class="${statusIcon[j.status] || 'ri-question-line'} me-1"></i>${j.status}
+                                    </span>
+                                </td>
+                                <td><small>${new Date(j.created_at).toLocaleString()}</small></td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        ${j.status === 'completed' || j.status === 'failed'
+                                            ? `<button class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="showOutput(${j.id}, '${j.tool_name}')"><i class="ri-eye-line"></i> View</button>`
+                                            : `<span class="text-muted small">—</span>`}
+                                        <button class="btn btn-xs btn-outline-danger py-0 px-2" onclick="deleteJob(${j.id})"><i class="ri-delete-bin-line"></i> Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    async function showOutput(jobId, toolName) {
+        document.getElementById("outputModalTitle").textContent = `${toolName} — Job #${jobId}`;
+        document.getElementById("outputModalBody").textContent  = "Loading...";
+        const modal = new bootstrap.Modal(document.getElementById("outputModal"));
+        modal.show();
+
+        const job = await fetchAPI(`/api/tools/${jobId}`);
+        document.getElementById("outputModalBody").textContent = job?.output || "(no output)";
+    }
+
+    async function deleteJob(jobId) {
+        const confirm = await Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (confirm?.isConfirmed) {
+            const res = await deleteAPI(`/api/tools/${jobId}`, "Deleting job...");
+            if (res) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: 'Job has been deleted successfully.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                loadJobs();
+            }
+        }
+    }
+</script>
+{% endblock %}

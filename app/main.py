@@ -35,10 +35,35 @@ async def scans(request: Request):
 async def lab(request: Request):
     return templates.TemplateResponse("lab.html", {"request": request})
 
-# Serve tools.html from templates
-@app.get("/tools.html", response_class=HTMLResponse)
-async def tools_page(request: Request):
-    return templates.TemplateResponse("tools.html", {"request": request})
+# Serve tool pages from templates folder (organized by category)
+@app.get("/tools/enumeration.html", response_class=HTMLResponse)
+async def enumeration_page(request: Request):
+    return templates.TemplateResponse("tools/enumeration.html", {"request": request})
+
+# Serve scanning.html from templates
+@app.get("/tools/scanning.html", response_class=HTMLResponse)
+async def scanning_page(request: Request):
+    return templates.TemplateResponse("tools/scanning.html", {"request": request})
+
+# Serve information-gathering.html from templates
+@app.get("/tools/information-gathering.html", response_class=HTMLResponse)
+async def information_gathering_page(request: Request):
+    return templates.TemplateResponse("tools/information-gathering.html", {"request": request})
+
+# Serve web-fuzzing.html from templates
+@app.get("/tools/web-fuzzing.html", response_class=HTMLResponse)
+async def web_fuzzing_page(request: Request):
+    return templates.TemplateResponse("tools/web-fuzzing.html", {"request": request})
+
+# Serve vulnerability-assessment.html from templates
+@app.get("/tools/vulnerability-assessment.html", response_class=HTMLResponse)
+async def vulnerability_assessment_page(request: Request):
+    return templates.TemplateResponse("tools/vulnerability-assessment.html", {"request": request})
+
+# Serve ffuf.html from templates (if exists)
+@app.get("/tools/ffuf.html", response_class=HTMLResponse)
+async def ffuf_tool_page(request: Request):
+    return templates.TemplateResponse("tools/ffuf.html", {"request": request})
 
 # Serve db_playground.html from templates
 @app.get("/db_playground.html", response_class=HTMLResponse)
