@@ -26,6 +26,7 @@ class ToolRunRequest(BaseModel):
     domain: Optional[str] = ""  # Original domain for tools like theHarvester
     mode: Optional[str] = ""  # For tools like amass that have different modes (enum, intel)
     target_flag: Optional[str] = ""  # For amass: -d for enum, -org for intel
+    credentials: Optional[str] = ""  # For GHunt OAuth credentials
 
     @validator('target')
     def validate_target(cls, v):
@@ -91,6 +92,11 @@ def run_tool(
     final_target = req.target
     if req.tool_name == "theHarvester" and req.domain:
         final_target = req.domain
+    
+    # Save GHunt credentials if provided
+    if req.tool_name == "ghunt" and req.credentials:
+        with open("/app/ghunt_credentials.json", "w") as f:
+            f.write(req.credentials)
     
     job = ToolJob(tool_name=req.tool_name, target=final_target, args=req.args, sources=req.sources, mode=req.mode, target_flag=req.target_flag, status="pending")
     db.add(job)

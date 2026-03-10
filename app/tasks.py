@@ -1,5 +1,6 @@
 import re
 import shlex
+import base64
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 from app.db.session import SessionLocal
@@ -7,7 +8,7 @@ from app.models.scan import Scan
 from app.models.target import Target
 from app.models.vulnerability import Vulnerability
 from app.models.tool_job import ToolJob
-import time, subprocess, redis
+import time, subprocess, redis, asyncio
 from datetime import datetime
 import random
 import json
@@ -15,6 +16,98 @@ from app.core.config import settings
 
 # Redis client for caching tool output and scan data
 _redis = redis.from_url(settings.REDIS_URL)
+
+
+async def generate_ghunt_session(oauth_token: str, creds_path: str) -> bool:
+    """Generate GHunt session from OAuth token.
+    
+    This function creates the creds.m file needed by GHunt by:
+    1. Exchanging the OAuth token for a master token
+    2. Generating cookies and OSIDs
+    3. Saving everything to the creds.m file
+    """
+    import httpx
+    
+    # GHunt's internal modules for auth
+    import sys
+    sys.path.insert(0, '/opt/ghunt')
+    
+    from ghunt.helpers import auth
+    from ghunt.objects.base import GHuntCreds
+    
+    as_client = httpx.AsyncClient(follow_redirects=True)
+    
+    try:
+        # Exchange OAuth token for master token
+        master_token, services, owner_email, owner_name = await auth.android_master_auth(
+            as_client, oauth_token
+        )
+        print(f"[+] Connected account: {owner_email}")
+        
+        # Create GHuntCreds object
+        ghunt_creds = GHuntCreds(creds_path)
+        ghunt_creds.android.master_token = master_token
+        ghunt_creds.android.authorization_tokens = {}
+        ghunt_creds.cookies = {"a": "a"}  # Dummy data
+        ghunt_creds.osids = {"a": "a"}  # Dummy data
+        
+        # Generate cookies and osids
+        print("[+] Generating cookies and osids...")
+        await auth.gen_cookies_and_osids(as_client, ghunt_creds)
+        
+        # Save credentials
+        ghunt_creds.save_creds()
+        print(f"[+] Session saved to {creds_path}")
+        
+        await as_client.aclose()
+        return True
+        
+    except Exception as e:
+        print(f"[-] Error generating session: {e}")
+        await as_client.aclose()
+        return False
+
+
+def setup_ghunt_session(ghunt_dir: str) -> bool:
+    """Setup GHunt session from OAuth token in credentials file."""
+    creds_file = "/app/ghunt_credentials.json"
+    
+    if not os.path.exists(creds_file):
+        return False
+    
+    try:
+        with open(creds_file, 'r') as f:
+            creds_data = json.load(f)
+        
+        oauth_token = creds_data.get("oauth_token", "").strip()
+        
+        if not oauth_token or oauth_token == "YOUR_OAUTH_TOKEN_HERE":
+            print("[-] No OAuth token found in ghunt_credentials.json")
+            print("    Add 'oauth_token' field with your token (starts with 'oauth2_4/')")
+            return False
+        
+        # Check if we already have a valid session
+        creds_path = os.path.join(ghunt_dir, "creds.m")
+        if os.path.exists(creds_path):
+            # Try to load and validate existing session
+            try:
+                import base64
+                import json
+                with open(creds_path, 'r') as f:
+                    data = json.loads(base64.b64decode(f.read()).decode())
+                if data.get('android', {}).get('master_token'):
+                    print("[+] Using existing GHunt session")
+                    return True
+            except:
+                pass  # Invalid session, regenerate
+        
+        # Generate new session from OAuth token
+        print("[+] Generating GHunt session from OAuth token...")
+        return asyncio.run(generate_ghunt_session(oauth_token, creds_path))
+        
+    except Exception as e:
+        print(f"[-] Error setting up GHunt session: {e}")
+        return False
 
 # Cache TTL settings (in seconds)
 CACHE_TTL = {
@@ -188,7 +281,7 @@ TOOL_COMMANDS = {
     "secretfinder":   ["python3", "/opt/SecretFinder/SecretFinder.py", "-i", "{target}", "-o", "cli"],
     "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
     "mosint":         ["mosint", "{target}"],
-    "ghunt":          ["python3", "/opt/GHunt/hunt.py", "email", "{target}"],
+    "ghunt":          ["python3", "/opt/ghunt/main.py", "email", "{target}"],
     "osmedeus":       ["osmedeus", "scan", "-t", "{target}"],
 }
 
@@ -308,6 +401,17 @@ def run_tool_task(job_id: int):
         command_str = ' '.join(cmd)
         output = f"[COMMAND] {command_str}\n\n"
 
+        # Setup specific tool environment before execution
+        if job.tool_name == "ghunt" and os.path.exists("/app/ghunt_credentials.json"):
+            import shutil
+            for d in ["~/.ghunt", "~/.malfrats/ghunt"]:
+                ghunt_dir = os.path.expanduser(d)
+                os.makedirs(ghunt_dir, exist_ok=True)
+                # Copy OAuth credentials file
+                shutil.copy("/app/ghunt_credentials.json", os.path.join(ghunt_dir, "credentials.json"))
+                # Generate session from OAuth token if available
+                setup_ghunt_session(ghunt_dir)
+
         # Security: Use shell=False to prevent shell injection
         result = subprocess.run(
             cmd,
@@ -331,6 +435,10 @@ def run_tool_task(job_id: int):
         job.status = "failed"
     else:
         job.status = "completed"
+
+    # Strip ANSI escape codes
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    output = ansi_escape.sub('', output)
 
     job.output = output
     job.completed_at = datetime.utcnow()

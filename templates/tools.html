@@ -26,6 +26,7 @@
     .tool-card.mosint     { border-top-color: #20c997; }
     .tool-card.ghunt      { border-top-color: #fd7e14; }
     .tool-card.osmedeus   { border-top-color: #dc3545; }
+    .tool-card.whatweb    { border-top-color: #0dcaf0; }
 
     .output-block {
         background: #0d1117;
@@ -168,7 +169,7 @@
             "doc": "https://nmap.org/book/man.html",
             "prefer_target": "ip"
         },
-
+        
         {
             "id": "theHarvester",
             "name": "theHarvester",
@@ -178,6 +179,7 @@
             "ph": "example.com",
             "args_hint": "e.g. -l -n -r",
             "sources": [
+                "all",
                 "crtsh",
                 "rapiddns",
                 "duckduckgo",
@@ -253,7 +255,7 @@
             "name": "ffuf",
             "icon": "ri-search-eye-line",
             "color": "ffuf",
-            "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing. [todo : its for find Hidden Directory]",
+            "desc": "Fast web fuzzer. Directory, file & parameter brute-forcing.",
             "ph": "https://example.com",
             "args_hint": "e.g. -fc 404",
             "doc": "https://github.com/ffuf/ffuf",
@@ -305,18 +307,19 @@
             "ph": "user@gmail.com",
             "args_hint": "",
             "doc": "https://github.com/mxrch/GHunt",
-            "prefer_target": "domain"
+            "prefer_target": "domain",
+            "needs_credentials": true
         },
 
         {
-            "id": "osmedeus",
-            "name": "Osmedeus",
-            "icon": "ri-robot-line",
-            "color": "osmedeus",
-            "desc": "Automated recon workflow orchestrator for large-scale scans.",
-            "ph": "example.com",
-            "args_hint": "",
-            "doc": "https://github.com/j3ssie/osmedeus",
+            "id": "whatweb",
+            "name": "WhatWeb",
+            "icon": "ri-earth-fill",
+            "color": "whatweb",
+            "desc": "Next generation web scanner to identify technologies used by websites.",
+            "ph": "https://example.com",
+            "args_hint": "e.g. -v -a 3",
+            "doc": "https://github.com/urbanadventurer/WhatWeb",
             "prefer_target": "domain"
         }
 
@@ -324,9 +327,9 @@
 
             {% for tool in tools %}
             <div class="col-lg-12 col-md-12">
-                <div class="card tool-card {{ tool.color }} h-100">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-3">
+                <div class="card tool-card {{ tool.color }}">
+                    <div class="card-body pb-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#collapse_{{ tool.id }}" aria-expanded="false" aria-controls="collapse_{{ tool.id }}">
+                        <div class="d-flex align-items-center mb-2">
                             <div class="avatar-sm me-3 flex-shrink-0">
                                 {% if '://' in tool.icon or tool.icon[0] == '/' %}
                                 <img src="{{ tool.icon }}" alt="{{ tool.name }}" class="rounded-circle" style="width: 38px; height: 38px; object-fit: cover;">
@@ -340,7 +343,7 @@
                                 <div class="d-flex align-items-center justify-content-between">
                                     <h6 class="mb-0 fw-bold">{{ tool.name }}</h6>
                                     {% if tool.doc %}
-                                    <div class="doc-link">
+                                    <div class="doc-link" onclick="event.stopPropagation();">
                                         <i class="ri-information-line text-primary fs-15"></i>
                                         <div class="custom-tooltip">
                                             <div class="tooltip-header">
@@ -361,9 +364,12 @@
                                 <small class="text-muted">{{ tool.desc }}</small>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="mb-2">
-                            <label class="form-label fw-medium mb-1">Target</label>
+                    <div id="collapse_{{ tool.id }}" class="collapse">
+                        <div class="card-body pt-0 mt-n1">
+                            <div class="mb-2">
+                                <label class="form-label fw-medium mb-1">Target</label>
                             <input type="text"
                                 id="target_{{ tool.id }}"
                                 prefer_target="{{ tool.prefer_target }}"
@@ -383,6 +389,22 @@
                         </div>
                         {% endif %}
 
+                        {% if tool.needs_credentials %}
+                        <div class="mb-3" id="cred_section_{{ tool.id }}">
+                            <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.8rem;">
+                                <strong>Credentials Needed</strong><br>
+                                {{ tool.name }} needs a Google account’s OAuth credentials.<br>
+                                This usually involves a <code>credentials.json</code> file for Google API access.<br>
+                                You can generate one in the Google Cloud Console:<br>
+                                1. Go to Google Cloud Console &rarr; APIs & Services &rarr; Credentials.<br>
+                                2. Create a New OAuth 2.0 Client ID (Desktop app type is fine).<br>
+                                3. Download the credentials.json file.
+                            </div>
+                            <label class="form-label fw-medium mb-1">Paste credentials.json content <span class="text-muted fw-normal">(leave blank if already saved)</span></label>
+                            <textarea id="cred_{{ tool.id }}" class="form-control form-control-sm" rows="3" placeholder='{"installed":{"client_id":"...","project_id":"...","auth_uri":"..."}}'></textarea>
+                        </div>
+                        {% endif %}
+
 
 
                         {% if tool.args_hint is defined %}
@@ -395,11 +417,12 @@
                         </div>
                         {% endif %}
 
-                        <button class="btn btn-sm btn-success w-100 mt-auto"
+                        <button class="btn btn-sm btn-success w-100 mt-2"
                                 id="btn_{{ tool.id }}"
                                 onclick="runTool('{{ tool.id }}', '{{ tool.name }}')">
                             <i class="ri-play-line me-1"></i> Run {{ tool.name }}
                         </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -480,6 +503,14 @@ function downloadOutput() {
         if (!checkAuth()) return;
         loadJobs();
         loadTargetFromSession();
+        // Load saved credentials visually
+        const ghuntCred = localStorage.getItem('cred_ghunt');
+        if (ghuntCred) {
+            const credEl = document.getElementById('cred_ghunt');
+            if (credEl) {
+                credEl.placeholder = "Credentials saved in browser. Paste new JSON to override.";
+            }
+        }
         // Auto-refresh every 4 seconds
         pollTimer = setInterval(loadJobs, 4000);
     });
@@ -630,7 +661,19 @@ function downloadOutput() {
         // Get domain from session for theHarvester
         const domain = sessionStorage.getItem('recon_domain') || "";
         
-        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args, sources, domain, mode: "", target_flag: "" }, `Queuing ${toolName}...`);
+        // Check for credentials
+        let credentials = "";
+        const credEl = document.getElementById(`cred_${toolId}`);
+        if (credEl) {
+            credentials = credEl.value.trim();
+            if (credentials) {
+                localStorage.setItem(`cred_${toolId}`, credentials);
+            } else {
+                credentials = localStorage.getItem(`cred_${toolId}`) || "";
+            }
+        }
+
+        const result = await postAPI("/api/tools/run", { tool_name: toolId, target, args, sources, domain, mode: "", target_flag: "", credentials: credentials }, `Queuing ${toolName}...`);
 
         btn.disabled = false;
         btn.innerHTML = `<i class="ri-play-line me-1"></i> Run ${toolName}`;
