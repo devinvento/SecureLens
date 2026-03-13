@@ -4,12 +4,18 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git curl wget nmap unzip \
-    postgresql-client redis-tools \
-    gcc libpq-dev \
-    ruby ruby-dev \
     build-essential \
+    ruby ruby-dev \
+    libyaml-dev \
+    zlib1g-dev \
+    libffi-dev \
+    pkg-config \
+    git curl wget nmap unzip \
+    ca-certificates \
+    golang \
+    postgresql-client redis-tools \
     chromium \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency file first
@@ -73,10 +79,11 @@ RUN echo '#!/bin/bash\npython3 /opt/ghunt/main.py "$@"' > /usr/local/bin/ghunt \
 
 # Clone WhatWeb repo and install
 RUN git clone https://github.com/urbanadventurer/WhatWeb.git /opt/whatweb && \
+    gem install bundler && \
     cd /opt/whatweb && \
-    gem build whatweb.gemspec && \
-    gem install whatweb-*.gem && \
-    ln -s /usr/local/bin/whatweb /usr/bin/whatweb || true
+    bundle install && \
+    ln -s /opt/whatweb/whatweb /usr/local/bin/whatweb && \
+    chmod +x /opt/whatweb/whatweb
 
 
 # ---------------------------
@@ -96,10 +103,27 @@ RUN go install github.com/ffuf/ffuf@latest && \
     mv /root/go/bin/ffuf /usr/local/bin/ffuf
 
 # ---------------------------
+# Install GAU (Get All URLs)
+# ---------------------------
+RUN go install github.com/lc/gau/v2/cmd/gau@latest && \
+    mv /root/go/bin/gau /usr/local/bin/gau
+
+
+# Install SecretFinder
+RUN git clone https://github.com/m4ll0k/SecretFinder.git /opt/SecretFinder && \
+    pip3 install -r /opt/SecretFinder/requirements.txt && \
+    chmod +x /opt/SecretFinder/SecretFinder.py
+
+# Install LinkFinder
+RUN git clone https://github.com/GerbenJavado/LinkFinder.git /opt/LinkFinder && \
+    pip3 install -r /opt/LinkFinder/requirements.txt && \
+    ln -s /opt/LinkFinder/linkfinder.py /usr/local/bin/linkfinder
+
+# ---------------------------
 # Install SecLists
 # ---------------------------
 
-RUN git clone https://github.com/danielmiessler/SecLists.git /opt/SecLists
+# RUN git clone https://github.com/danielmiessler/SecLists.git /opt/SecLists
 
 
 

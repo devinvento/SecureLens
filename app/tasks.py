@@ -280,11 +280,16 @@ TOOL_COMMANDS = {
     "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "{sources}"],
     "amass":          ["amass", "{mode}", "{args}", "{target_flag}", "{target}"],  # Mode: enum or intel
     "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
-    "secretfinder":   ["python3", "/opt/SecretFinder/SecretFinder.py", "-i", "{target}", "-o", "cli"],
+    "secretfinder": [
+        "bash",
+        "-c",
+        "gau {target} | grep '\\.js$' | grep -v cdn-cgi | sort -u | while read url; do code=$(curl -s -o /tmp/js.tmp -w '%{http_code}' -A 'Mozilla/5.0' \"$url\"); if [ \"$code\" = \"200\" ]; then echo \"[+] $url\"; python3 /opt/LinkFinder/linkfinder.py -i /tmp/js.tmp -o cli 2>/dev/null; python3 /opt/SecretFinder/SecretFinder.py -i /tmp/js.tmp -o cli 2>/dev/null; fi; done"
+    ],
     "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
     "mosint":         ["mosint","-t", "{target}"],
     "ghunt":          ["python3", "/opt/ghunt/main.py", "email", "{target}"],
-    "osmedeus":       ["osmedeus", "scan", "-t", "{target}"]
+    "osmedeus":       ["osmedeus", "scan", "-t", "{target}"],
+    "whatweb":        ["whatweb", "{args}","-a","3","-v","--color=never", "{target}"]
 }
 
 
@@ -332,7 +337,7 @@ def run_tool_task(job_id: int):
         # For theHarvester, also check if args contains domain info
 
     # Special handling for ffuf - check http/https and use working protocol
-    if job.tool_name == "ffuf":
+    if job.tool_name == "ffuf" or job.tool_name == "whatweb" or job.tool_name == "secretfinder":
         safe_target = check_http_protocol(safe_target)
 
     # Set timeout based on tool type (some tools need more time)
@@ -341,12 +346,222 @@ def run_tool_task(job_id: int):
         "amass": 900,          # 15 minutes
         "osmedeus": 1800,      # 30 minutes
         "nmap": 300,           # 5 minutes
-        "ffuf": 2000,           # 5 minutes
+        "ffuf": 20000,           # 5 minutes
         "finalrecon": 300,     # 5 minutes
         "secretfinder": 300,   # 5 minutes
         "pymeta": 300,         # 5 minutes
         "mosint": 300,         # 5 minutes
         "ghunt": 300,          # 5 minutes
+        "whatweb": 300,        # 5 minutes
+    }
+    timeout = tool_timeouts.get(job.tool_name, 300)
+
+    job.status = "running"
+    db.commit()
+
+    try:
+        # Handle SoftTimeLimitExceeded from Celery
+        template = TOOL_COMMANDS.get(job.tool_name)
+        if not template:
+            raise ValueError(f"Unknown tool: {job.tool_name}")
+
+        # Check if tool binary exists (only for /opt/tools/ and /usr/local/bin/ paths)
+        for part in template:
+            # Only check for actual binary tool paths, not wordlists/data directories
+            if (part.startswith('/opt/tools/') or part.startswith('/usr/local/bin/')):
+                tool_path = part.split()[1] if ' ' in part else part
+                if not os.path.exists(tool_path):
+                    job.output = f"[ERROR] Tool not found: {job.tool_name}. Please ensure the tool is installed."
+                    job.status = "failed"
+                    job.completed_at = datetime.utcnow()
+                    db.commit()
+                    db.close()
+                    return f"ToolJob {job_id} failed: Tool not found"
+
+        # Build command with sanitized inputs
+        safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,subdomaincenter")
+        safe_mode = sanitize_input(job.mode or "enum")  # Default to enum mode for amass
+        safe_target_flag = sanitize_input(job.target_flag or "-d")  # Default to -d for enum
+        
+        # Default args for specific tools
+        safe_args = job.args
+        if job.tool_name == "masscan" and not safe_args:
+            safe_args = "-p1-10000"  # Default ports for masscan
+        
+        cmd = []
+        for part in template:
+            if part == "{target}":
+                cmd.append(safe_target)
+            elif part == "{args}":
+                if safe_args:
+                    cmd.extend(shlex.split(safe_args))
+            elif part == "{sources}":
+                cmd.append(safe_sources)
+            elif part == "{mode}":
+                cmd.append(safe_mode)
+            elif part == "{target_flag}":
+                cmd.append(safe_target_flag)
+            else:
+                # Handle cases where placeholders are part of a string (less common in our current TOOL_COMMANDS but safer)
+                p = part.replace("{target}", safe_target).replace("{sources}", safe_sources).replace("{mode}", safe_mode).replace("{target_flag}", safe_target_flag)
+                if "{args}" in p:
+                    if safe_args:
+                         # This case is tricky if args are in middle of string, but our current tools don't do that
+                         p = p.replace("{args}", safe_args)
+                         cmd.extend(shlex.split(p))
+                    else:
+                         p = p.replace("{args}", "")
+                         if p: cmd.append(p)
+                else:
+                    cmd.append(p)
+
+        # Show the command in output
+        command_str = ' '.join(cmd)
+        output = f"[COMMAND] {command_str}\n\n"
+
+        # Setup specific tool environment before execution
+        if job.tool_name == "ghunt" and os.path.exists("/app/ghunt_credentials.json"):
+            import shutil
+            for d in ["~/.ghunt", "~/.malfrats/ghunt"]:
+                ghunt_dir = os.path.expanduser(d)
+                os.makedirs(ghunt_dir, exist_ok=True)
+                # Copy OAuth credentials file
+                shutil.copy("/app/ghunt_credentials.json", os.path.join(ghunt_dir, "credentials.json"))
+                # Generate session from OAuth token if available
+                setup_ghunt_session(ghunt_dir)
+
+        # Security: Use shell=False to prevent shell injection
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,  # Dynamic timeout based on tool type
+            shell=False,  # SECURITY: Prevent shell injection
+        )
+        output += result.stdout or ""
+        if result.stderr:
+            output += "\n--- STDERR ---\n" + result.stderr
+
+    except SoftTimeLimitExceeded:
+        output = "[ERROR] Task exceeded maximum execution time and was terminated."
+        job.status = "failed"
+    except subprocess.TimeoutExpired:
+        output = f"[ERROR] Tool timed out after {timeout} seconds."
+        job.status = "failed"
+    except Exception as e:
+        output = f"[ERROR] {str(e)}"
+        job.status = "failed"
+    else:
+        job.status = "completed"
+
+    # Strip ANSI escape codes
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    output = ansi_escape.sub('', output)
+
+    job.output = output
+    job.completed_at = datetime.utcnow()
+    db.commit()
+    db.close()
+
+    # Cache result in Redis (TTL 1 hour)
+    _redis.setex(f"tool:result:{job_id}", 3600, output)
+
+    return f"ToolJob {job_id} finished with status: {job.status}"
+
+# Tool command templates
+TOOL_COMMANDS = {
+    "nmap":         ["nmap", "{args}", "{target}"],
+    "subfinder":    ["subfinder", "-silent", "-d", "{target}"],
+    "amass":        ["amass", "enum", "-passive", "-d", "{target}"],
+    "assetfinder":  ["assetfinder", "--subs-only", "{target}"],
+    "findomain":    ["findomain", "-t", "{target}", "-q"],
+    "theHarvester": ["theHarvester", "-d", "{target}", "-b", "{sources}", "-f", "{target}.xml"],
+    "sublist3r":    ["sublist3r", "-d", "{target}", "-o", "{target}_subdomains.txt"],
+    "masscan":      ["masscan", "{args}", "-oL", "{target}_masscan.txt", "{target}"],
+    "httpx":        ["httpx", "-l", "{target}", "-threads", "50", "-silent"],
+    "nuclei":       ["nuclei", "-u", "{target}", "{args}"],
+    "xff":          ["xff", "-u", "{target}", "-e"],
+    "nikto":        ["nikto", "-h", "{target}"],
+    "wpscan":       ["wpscan", "--url", "{target}", "--enumerate", "vp", "--batch"],
+    "wafw00f":      ["wafw00f", "{target}"],
+    "dig":          ["dig", "{target}"],
+    "whois":        ["whois", "{target}"],
+    "dnsenum":      ["dnsenum", "{target}"],
+    "fierce":       ["fierce", "--domain", "{target}"],
+    "cybersec":     ["cybersec", "-t", "{target}"],
+    "recon-ng":     ["recon-ng", "-r", "/app/reconng_commands.txt"],
+    "gobuster":     ["gobuster", "dir", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-t", "10"],
+    "dirb":         ["dirb", "{target}", "/opt/SecLists/Discovery/Web-Content/common.txt"],
+    "ffuf":         ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
+    "secretfinder": ["bash", "-c", "gau {target} | grep .js$ | while read url; do python3 /opt/LinkFinder/linkfinder.py -i \"$url\" -o cli; python3 /opt/SecretFinder/SecretFinder.py -i \"$url\" -o cli; done"],
+    "pymeta":       ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
+    "mosint":       ["mosint", "-t", "{target}"],
+    "ghunt":        ["python3", "/opt/ghunt/main.py", "email", "{target}"],
+    "osmedeus":     ["osmedeus", "scan", "-t", "{target}"],
+    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"]
+}
+
+
+@shared_task(name="app.tasks.run_tool_task", soft_time_limit=600, time_limit=700)
+def run_tool_task(job_id: int):
+    import os
+    db = SessionLocal()
+    job = db.query(ToolJob).filter(ToolJob.id == job_id).first()
+    if not job:
+        db.close()
+        return "Job not found"
+
+    # Validate and sanitize inputs before processing
+    if not validate_target(job.target):
+        job.output = "[ERROR] Invalid target format. Only domains, IP addresses, or URLs are allowed."
+        job.status = "failed"
+        job.completed_at = datetime.utcnow()
+        db.commit()
+        db.close()
+        return f"ToolJob {job_id} failed: Invalid target"
+
+    # Special validation for nmap - only accept IP addresses
+    if job.tool_name == "nmap":
+        ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
+        if not re.match(ip_pattern, job.target):
+            job.output = "[ERROR] Nmap only accepts IP addresses. Please enter an IP address."
+            job.status = "failed"
+            job.completed_at = datetime.utcnow()
+            db.commit()
+            db.close()
+            return f"ToolJob {job_id} failed: Nmap requires IP address"
+
+    # Sanitize target and args to prevent command injection
+    safe_target = sanitize_input(job.target)
+    safe_args = sanitize_input(job.args or "")
+
+    # Special sanitization for theHarvester (requires domain only)
+    if job.tool_name == "theHarvester":
+        # Remove http:// or https://
+        safe_target = re.sub(r'^https?://', '', safe_target)
+        # Remove www.
+        safe_target = re.sub(r'^www\.', '', safe_target)
+        # Remove trailing slashes
+        safe_target = safe_target.rstrip('/')
+        # For theHarvester, also check if args contains domain info
+
+    # Special handling for ffuf - check http/https and use working protocol
+    if job.tool_name == "ffuf" or job.tool_name == "whatweb" or job.tool_name == "secretfinder":
+        safe_target = check_http_protocol(safe_target)
+
+    # Set timeout based on tool type (some tools need more time)
+    tool_timeouts = {
+        "theHarvester": 600,   # 10 minutes
+        "amass": 900,          # 15 minutes
+        "osmedeus": 1800,      # 30 minutes
+        "nmap": 300,           # 5 minutes
+        "ffuf": 20000,           # 5 minutes
+        "finalrecon": 300,     # 5 minutes
+        "secretfinder": 300,   # 5 minutes
+        "pymeta": 300,         # 5 minutes
+        "mosint": 300,         # 5 minutes
+        "ghunt": 300,          # 5 minutes
+        "whatweb": 300,        # 5 minutes
     }
     timeout = tool_timeouts.get(job.tool_name, 300)
 
