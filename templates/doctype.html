@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block page_id %}doctype{% endblock %}
+
+{% block title %}DocType Management - SecureLens{% endblock %}
+
+{% block page_title %}DocType Management{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="/dashboard.html">Admin</a></li>
+<li class="breadcrumb-item active">DocTypes</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header border-0 align-items-center d-flex">
+                <h4 class="card-title mb-0 flex-grow-1">DocTypes</h4>
+                <div class="flex-shrink-0">
+                    <button type="button" class="btn btn-soft-info btn-sm" id="newDocTypeBtn">
+                        <i class="ri-add-line align-middle"></i> New DocType
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive table-card">
+                    <table class="table table-nowrap align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Table Name</th>
+                                <th>Module</th>
+                                <th>Created At</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="doctypeList">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const fetchDocTypes = async () => {
+            const data = await fetchAPI("/api/doctype/", "Fetching DocTypes...");
+            if (data) {
+                const tbody = document.getElementById("doctypeList");
+                tbody.innerHTML = data.map(dt => `
+                    <tr>
+                        <td><strong>${dt.name}</strong><br><small class="text-muted">${dt.description || ''}</small></td>
+                        <td><code>${dt.table_name}</code></td>
+                        <td>${dt.module || 'Core'}</td>
+                        <td>${new Date(dt.created_at).toLocaleString()}</td>
+                        <td>
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-soft-secondary btn-sm dropdown" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="ri-more-fill align-middle"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item edit-item-btn"><i class="ri-pencil-fill align-bottom me-2 text-muted"></i> Edit</a></li>
+                                    <li><a class="dropdown-item remove-item-btn"><i class="ri-delete-bin-fill align-bottom me-2 text-muted"></i> Delete</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        };
+
+        fetchDocTypes();
+    });
+</script>
+{% endblock %}

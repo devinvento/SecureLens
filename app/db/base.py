@@ -6,3 +6,4 @@ from app.models.vulnerability import Vulnerability  # noqa
 from app.models.tool_job import ToolJob  # noqa
 from app.models.role_permission import Role, Permission  # noqa
 from app.models.audit_log import AuditLog  # noqa
+from app.models.doctype import DocType, DocField  # noqa

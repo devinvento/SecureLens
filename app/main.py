@@ -86,6 +86,10 @@ async def users_page(request: Request):
 async def permissions_page(request: Request):
     return templates.TemplateResponse("permissions.html", {"request": request})
 
+@app.get("/doctype.html", response_class=HTMLResponse)
+async def doctype_page(request: Request):
+    return templates.TemplateResponse("doctype.html", {"request": request})
+
 
 
 # Serve index.html from static folder (original format without extends)
