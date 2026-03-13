@@ -274,23 +274,43 @@ def run_scan_task(scan_id: int):
 # ---------------------------------------------------------------
 # Tool command mappings
 # ---------------------------------------------------------------
+
 TOOL_COMMANDS = {
-    "nmap":           ["nmap", "{args}", "{target}"],
-    "masscan":        ["masscan", "{args}", "{target}"],
-    "theHarvester":   ["theHarvester", "-d", "{target}", "-b", "{sources}"],
-    "amass":          ["amass", "{mode}", "{args}", "{target_flag}", "{target}"],  # Mode: enum or intel
-    "ffuf":           ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
+    "nmap":         ["nmap", "{args}", "{target}"],
+    "subfinder":    ["subfinder", "-silent", "-d", "{target}"],
+    "amass":          ["amass", "{mode}", "{args}", "{target_flag}", "{target}"],
+    "assetfinder":  ["assetfinder", "--subs-only", "{target}"],
+    "findomain":    ["findomain", "-t", "{target}", "-q"],
+    "theHarvester": ["theHarvester", "-d", "{target}", "-b", "{sources}", "-f", "{target}.xml"],
+    "sublist3r":    ["sublist3r", "-d", "{target}", "-o", "{target}_subdomains.txt"],
+    "masscan":      ["masscan", "{args}", "-oL", "{target}_masscan.txt", "{target}"],
+    "httpx":        ["httpx", "-l", "{target}", "-threads", "50", "-silent"],
+    "nuclei":       ["nuclei", "-u", "{target}", "{args}"],
+    "xff":          ["xff", "-u", "{target}", "-e"],
+    "nikto":        ["nikto", "-h", "{target}"],
+    "wpscan":       ["wpscan", "--url", "{target}", "--enumerate", "vp", "--batch"],
+    "wafw00f":      ["wafw00f", "{target}"],
+    "dig":          ["dig", "{target}"],
+    "whois":        ["whois", "{target}"],
+    "dnsenum":      ["dnsenum", "{target}"],
+    "fierce":       ["fierce", "--domain", "{target}"],
+    "cybersec":     ["cybersec", "-t", "{target}"],
+    "recon-ng":     ["recon-ng", "-r", "/app/reconng_commands.txt"],
+    "gobuster":     ["gobuster", "dir", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-t", "10"],
+    "dirb":         ["dirb", "{target}", "/opt/SecLists/Discovery/Web-Content/common.txt"],
+    "ffuf":         ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
     "secretfinder": [
         "bash",
         "-c",
-        "gau {target} | grep '\\.js$' | grep -v cdn-cgi | sort -u | while read url; do code=$(curl -s -o /tmp/js.tmp -w '%{http_code}' -A 'Mozilla/5.0' \"$url\"); if [ \"$code\" = \"200\" ]; then echo \"[+] $url\"; python3 /opt/LinkFinder/linkfinder.py -i /tmp/js.tmp -o cli 2>/dev/null; python3 /opt/SecretFinder/SecretFinder.py -i /tmp/js.tmp -o cli 2>/dev/null; fi; done"
+        "gau {target} 2>/dev/null | grep -Ei '\\.js(\\?|$)' | grep -Ev 'cdn-cgi|jquery|bootstrap|wp-includes' | sort -u | while read -r url; do code=$(curl -L -s -A 'Mozilla/5.0' -o /tmp/js.tmp -w '%{http_code}' \"$url\"); type=$(file -b --mime-type /tmp/js.tmp); if [ \"$code\" = \"200\" ] && [[ \"$type\" == \"application/javascript\" || \"$type\" == \"text/plain\" ]]; then echo \"[+] $url\"; python3 /opt/LinkFinder/linkfinder.py -i /tmp/js.tmp -o cli 2>/dev/null; python3 /opt/SecretFinder/SecretFinder.py -i /tmp/js.tmp -o cli 2>/dev/null; fi; done"
     ],
-    "pymeta":         ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
-    "mosint":         ["mosint","-t", "{target}"],
-    "ghunt":          ["python3", "/opt/ghunt/main.py", "email", "{target}"],
-    "osmedeus":       ["osmedeus", "scan", "-t", "{target}"],
-    "whatweb":        ["whatweb", "{args}","-a","3","-v","--color=never", "{target}"]
+    "pymeta":       ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
+    "mosint":       ["mosint", "-t", "{target}"],
+    "ghunt":        ["python3", "/opt/ghunt/main.py", "email", "{target}"],
+    "osmedeus":     ["osmedeus", "scan", "-t", "{target}"],
+    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"]
 }
+
 
 
 @shared_task(name="app.tasks.run_tool_task", soft_time_limit=600, time_limit=700)
@@ -467,39 +487,6 @@ def run_tool_task(job_id: int):
     _redis.setex(f"tool:result:{job_id}", 3600, output)
 
     return f"ToolJob {job_id} finished with status: {job.status}"
-
-# Tool command templates
-TOOL_COMMANDS = {
-    "nmap":         ["nmap", "{args}", "{target}"],
-    "subfinder":    ["subfinder", "-silent", "-d", "{target}"],
-    "amass":        ["amass", "enum", "-passive", "-d", "{target}"],
-    "assetfinder":  ["assetfinder", "--subs-only", "{target}"],
-    "findomain":    ["findomain", "-t", "{target}", "-q"],
-    "theHarvester": ["theHarvester", "-d", "{target}", "-b", "{sources}", "-f", "{target}.xml"],
-    "sublist3r":    ["sublist3r", "-d", "{target}", "-o", "{target}_subdomains.txt"],
-    "masscan":      ["masscan", "{args}", "-oL", "{target}_masscan.txt", "{target}"],
-    "httpx":        ["httpx", "-l", "{target}", "-threads", "50", "-silent"],
-    "nuclei":       ["nuclei", "-u", "{target}", "{args}"],
-    "xff":          ["xff", "-u", "{target}", "-e"],
-    "nikto":        ["nikto", "-h", "{target}"],
-    "wpscan":       ["wpscan", "--url", "{target}", "--enumerate", "vp", "--batch"],
-    "wafw00f":      ["wafw00f", "{target}"],
-    "dig":          ["dig", "{target}"],
-    "whois":        ["whois", "{target}"],
-    "dnsenum":      ["dnsenum", "{target}"],
-    "fierce":       ["fierce", "--domain", "{target}"],
-    "cybersec":     ["cybersec", "-t", "{target}"],
-    "recon-ng":     ["recon-ng", "-r", "/app/reconng_commands.txt"],
-    "gobuster":     ["gobuster", "dir", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-t", "10"],
-    "dirb":         ["dirb", "{target}", "/opt/SecLists/Discovery/Web-Content/common.txt"],
-    "ffuf":         ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
-    "secretfinder": ["bash", "-c", "gau {target} | grep .js$ | while read url; do python3 /opt/LinkFinder/linkfinder.py -i \"$url\" -o cli; python3 /opt/SecretFinder/SecretFinder.py -i \"$url\" -o cli; done"],
-    "pymeta":       ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
-    "mosint":       ["mosint", "-t", "{target}"],
-    "ghunt":        ["python3", "/opt/ghunt/main.py", "email", "{target}"],
-    "osmedeus":     ["osmedeus", "scan", "-t", "{target}"],
-    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"]
-}
 
 
 @shared_task(name="app.tasks.run_tool_task", soft_time_limit=600, time_limit=700)

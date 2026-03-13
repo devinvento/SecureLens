@@ -119,6 +119,14 @@ RUN git clone https://github.com/GerbenJavado/LinkFinder.git /opt/LinkFinder && 
     pip3 install -r /opt/LinkFinder/requirements.txt && \
     ln -s /opt/LinkFinder/linkfinder.py /usr/local/bin/linkfinder
 
+
+# ---------------------------
+# Install Gobuster
+# ---------------------------
+RUN go install github.com/OJ/gobuster/v3@latest && \
+    mv /root/go/bin/gobuster /usr/local/bin/gobuster
+
+
 # ---------------------------
 # Install SecLists
 # ---------------------------
