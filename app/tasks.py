@@ -296,13 +296,13 @@ TOOL_COMMANDS = {
     "fierce":       ["fierce", "--domain", "{target}"],
     "cybersec":     ["cybersec", "-t", "{target}"],
     "recon-ng":     ["recon-ng", "-r", "/app/reconng_commands.txt"],
-    "gobuster":     ["gobuster", "dir", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-t", "10"],
+    "gobuster":     ["gobuster", "dir", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-t", "30", "-b", "404,403", "--timeout", "10s","-r"],
     "dirb":         ["dirb", "{target}", "/opt/SecLists/Discovery/Web-Content/common.txt"],
     "ffuf":         ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
     "secretfinder": [
         "bash",
         "-c",
-        "gau {target} 2>/dev/null | grep -Ei '\\.js(\\?|$)' | grep -Ev 'cdn-cgi|jquery|bootstrap|wp-includes' | sort -u | while read -r url; do code=$(curl -L -s -A 'Mozilla/5.0' -o /tmp/js.tmp -w '%{http_code}' \"$url\"); type=$(file -b --mime-type /tmp/js.tmp); if [ \"$code\" = \"200\" ] && [[ \"$type\" == \"application/javascript\" || \"$type\" == \"text/plain\" ]]; then echo \"[+] $url\"; python3 /opt/LinkFinder/linkfinder.py -i /tmp/js.tmp -o cli 2>/dev/null; python3 /opt/SecretFinder/SecretFinder.py -i /tmp/js.tmp -o cli 2>/dev/null; fi; done"
+        "gau {target} 2>/dev/null | grep -Ei '\\.js(\\?|$)' | grep -Ev 'cdn-cgi|jquery|bootstrap|wp-includes' | sort -u | while read -r url; do code=$(curl -L -s -A 'Mozilla/5.0' -o /tmp/js.tmp -w '%{http_code}' \"$url\"); if [ \"$code\" = \"200\" ]; then echo \"[+] $url\"; python3 /opt/LinkFinder/linkfinder.py -i /tmp/js.tmp -o cli 2>/dev/null; python3 /opt/SecretFinder/SecretFinder.py -i /tmp/js.tmp -o cli 2>/dev/null; fi; done"
     ],
     "pymeta":       ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
     "mosint":       ["mosint", "-t", "{target}"],
@@ -373,6 +373,7 @@ def run_tool_task(job_id: int):
         "mosint": 300,         # 5 minutes
         "ghunt": 300,          # 5 minutes
         "whatweb": 300,        # 5 minutes
+        "gobuster": 3000,        # 5 minutes
     }
     timeout = tool_timeouts.get(job.tool_name, 300)
 
