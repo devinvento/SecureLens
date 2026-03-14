@@ -450,17 +450,18 @@ TOOL_COMMANDS = {
     "gobuster":     ["gobuster", "dir", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-t", "30", "-b", "404,403", "--timeout", "10s","-r"],
     "dirb":         ["dirb", "{target}", "/opt/SecLists/Discovery/Web-Content/common.txt"],
     "ffuf":         ["ffuf", "-u", "{target}/FUZZ", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "{args}"],
+    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"],
+    "gospider":     ["gospider", "-s", "{target}", "-d", "2", "--quiet"],
+    "feroxbuster":  ["feroxbuster", "-u", "{target}", "-w", "/opt/SecLists/Discovery/Web-Content/common.txt", "-k", "--silent"],
     "secretfinder": [
         "bash",
         "-c",
         "gau {target} 2>/dev/null | grep -Ei '\\.js(\\?|$)' | grep -Ev 'cdn-cgi|jquery|bootstrap|wp-includes' | sort -u | while read -r url; do code=$(curl -L -s -A 'Mozilla/5.0' -o /tmp/js.tmp -w '%{http_code}' \"$url\"); if [ \"$code\" = \"200\" ]; then echo \"[+] $url\"; python3 /opt/LinkFinder/linkfinder.py -i /tmp/js.tmp -o cli 2>/dev/null; python3 /opt/SecretFinder/SecretFinder.py -i /tmp/js.tmp -o cli 2>/dev/null; fi; done"
     ],
-    "pymeta":       ["python3", "/opt/pymeta/pymeta.py", "-d", "{target}"],
+    "ghunt":        ["ghunt", "email", "{target}"],
+    "pymeta":       ["pymeta", "-d", "{target}"],
     "mosint":       ["mosint", "-t", "{target}"],
-    "ghunt":        ["python3", "/opt/ghunt/main.py", "email", "{target}"],
     "osmedeus":     ["osmedeus", "scan", "-t", "{target}"],
-    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"],
-    "gospider":     ["gospider", "-s", "{target}", "-d", "2", "--quiet"],
 }
 
 
@@ -469,200 +470,283 @@ TOOL_COMMANDS = {
 def run_tool_task(job_id: int):
     import os
     db = SessionLocal()
-    job = db.query(ToolJob).filter(ToolJob.id == job_id).first()
-    if not job:
-        db.close()
-        return "Job not found"
+    try:
+        job = db.query(ToolJob).filter(ToolJob.id == job_id).first()
+        if not job:
+            return "Job not found"
 
-    # Validate and sanitize inputs before processing
-    if not validate_target(job.target):
-        job.output = "[ERROR] Invalid target format. Only domains, IP addresses, or URLs are allowed."
-        job.status = "failed"
-        job.completed_at = datetime.utcnow()
-        db.commit()
-        db.close()
-        return f"ToolJob {job_id} failed: Invalid target"
-
-    # Special validation for nmap - only accept IP addresses
-    if job.tool_name == "nmap":
-        ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
-        if not re.match(ip_pattern, job.target):
-            job.output = "[ERROR] Nmap only accepts IP addresses. Please enter an IP address."
+        # Validate and sanitize inputs before processing
+        if not validate_target(job.target):
+            job.output = "[ERROR] Invalid target format. Only domains, IP addresses, or URLs are allowed."
             job.status = "failed"
             job.completed_at = datetime.utcnow()
             db.commit()
-            db.close()
-            return f"ToolJob {job_id} failed: Nmap requires IP address"
+            return f"ToolJob {job_id} failed: Invalid target"
 
-    # Sanitize target and args to prevent command injection
-    safe_target = sanitize_input(job.target)
-    safe_args = sanitize_input(job.args or "")
+        # Special validation for nmap - only accept IP addresses
+        if job.tool_name == "nmap":
+            ip_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
+            if not re.match(ip_pattern, job.target):
+                job.output = "[ERROR] Nmap only accepts IP addresses. Please enter an IP address."
+                job.status = "failed"
+                job.completed_at = datetime.utcnow()
+                db.commit()
+                return f"ToolJob {job_id} failed: Nmap requires IP address"
 
-    # Special sanitization for theHarvester (requires domain only)
-    if job.tool_name == "theHarvester":
-        # Remove http:// or https://
-        safe_target = re.sub(r'^https?://', '', safe_target)
-        # Remove www.
-        safe_target = re.sub(r'^www\.', '', safe_target)
-        # Remove trailing slashes
-        safe_target = safe_target.rstrip('/')
-        # For theHarvester, also check if args contains domain info
+        # Sanitize target and args to prevent command injection
+        safe_target = sanitize_input(job.target)
+        safe_args = sanitize_input(job.args or "")
 
-    # Special handling for ffuf - check http/https and use working protocol
-    if job.tool_name == "ffuf" or job.tool_name == "whatweb" or job.tool_name == "secretfinder" or job.tool_name == "gospider":
-        safe_target = check_http_protocol(safe_target)
+        # Special sanitization for theHarvester (requires domain only)
+        if job.tool_name == "theHarvester":
+            # Remove http:// or https://
+            safe_target = re.sub(r'^https?://', '', safe_target)
+            # Remove www.
+            safe_target = re.sub(r'^www\.', '', safe_target)
+            # Remove trailing slashes
+            safe_target = safe_target.rstrip('/')
+            # For theHarvester, also check if args contains domain info
 
-    # Set timeout based on tool type (some tools need more time)
-    tool_timeouts = {
-        "theHarvester": 600,   # 10 minutes
-        "amass": 900,          # 15 minutes
-        "osmedeus": 1800,      # 30 minutes
-        "nmap": 300,           # 5 minutes
-        "ffuf": 20000,           # 5 minutes
-        "finalrecon": 300,     # 5 minutes
-        "secretfinder": 300,   # 5 minutes
-        "pymeta": 300,         # 5 minutes
-        "mosint": 300,         # 5 minutes
-        "ghunt": 300,          # 5 minutes
-        "whatweb": 300,        # 5 minutes
-        "gobuster": 3000,      # 50 minutes
-        "gospider": 600,       # 10 minutes
-    }
-    timeout = tool_timeouts.get(job.tool_name, 300)
+        # Special handling for ffuf - check http/https and use working protocol
+        if job.tool_name in ["ffuf", "whatweb", "secretfinder", "gospider"]:
+            safe_target = check_http_protocol(safe_target)
 
-    job.status = "running"
-    db.commit()
+        # Set timeout based on tool type (some tools need more time)
+        tool_timeouts = {
+            "theHarvester": 600,   # 10 minutes
+            "amass": 900,          # 15 minutes
+            "osmedeus": 1800,      # 30 minutes
+            "nmap": 300,           # 5 minutes
+            "ffuf": 20000,           # 5 minutes
+            "finalrecon": 300,     # 5 minutes
+            "secretfinder": 300,   # 5 minutes
+            "pymeta": 300,         # 5 minutes
+            "mosint": 300,         # 5 minutes
+            "ghunt": 300,          # 5 minutes
+            "whatweb": 300,        # 5 minutes
+            "gobuster": 3000,      # 50 minutes
+            "gospider": 600,       # 10 minutes
+            "feroxbuster": 900,    # 15 minutes
+        }
+        timeout = tool_timeouts.get(job.tool_name, 300)
 
-    # Record start time for execution tracking
-    start_time = time.time()
+        job.status = "running"
+        db.commit()
 
-    try:
-        # Handle SoftTimeLimitExceeded from Celery
-        template = TOOL_COMMANDS.get(job.tool_name)
-        if not template:
-            raise ValueError(f"Unknown tool: {job.tool_name}")
+        # Record start time for execution tracking
+        start_time = time.time()
+        output = "" # Initialize output here
 
-        # Check if tool binary exists (only for /opt/tools/ and /usr/local/bin/ paths)
-        for part in template:
-            # Only check for actual binary tool paths, not wordlists/data directories
-            if (part.startswith('/opt/tools/') or part.startswith('/usr/local/bin/')):
-                tool_path = part.split()[1] if ' ' in part else part
-                if not os.path.exists(tool_path):
-                    job.output = f"[ERROR] Tool not found: {job.tool_name}. Please ensure the tool is installed."
-                    job.status = "failed"
-                    job.completed_at = datetime.utcnow()
-                    db.commit()
-                    db.close()
-                    return f"ToolJob {job_id} failed: Tool not found"
+        try:
+            # Handle SoftTimeLimitExceeded from Celery
+            template = TOOL_COMMANDS.get(job.tool_name)
+            if not template:
+                raise ValueError(f"Unknown tool: {job.tool_name}")
 
-        # Build command with sanitized inputs
-        safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,subdomaincenter")
-        safe_mode = sanitize_input(job.mode or "enum")  # Default to enum mode for amass
-        safe_target_flag = sanitize_input(job.target_flag or "-d")  # Default to -d for enum
-        
-        # Default args for specific tools
-        safe_args = job.args
-        if job.tool_name == "masscan" and not safe_args:
-            safe_args = "-p1-10000"  # Default ports for masscan
-        
-        cmd = []
-        for part in template:
-            if part == "{target}":
-                cmd.append(safe_target)
-            elif part == "{args}":
-                if safe_args:
-                    cmd.extend(shlex.split(safe_args))
-            elif part == "{sources}":
-                cmd.append(safe_sources)
-            elif part == "{mode}":
-                cmd.append(safe_mode)
-            elif part == "{target_flag}":
-                cmd.append(safe_target_flag)
-            else:
-                # Handle cases where placeholders are part of a string (less common in our current TOOL_COMMANDS but safer)
-                p = part.replace("{target}", safe_target).replace("{sources}", safe_sources).replace("{mode}", safe_mode).replace("{target_flag}", safe_target_flag)
-                if "{args}" in p:
+            # Check if tool binary exists (only for /opt/tools/ and /usr/local/bin/ paths)
+            for part in template:
+                # Only check for actual binary tool paths, not wordlists/data directories
+                if part.startswith(('/opt/tools/', '/usr/local/bin/')):
+                    tool_path = part.split()[1] if ' ' in part else part
+                    if not os.path.exists(tool_path):
+                        job.output = f"[ERROR] Tool not found: {job.tool_name}. Please ensure the tool is installed."
+                        job.status = "failed"
+                        job.completed_at = datetime.utcnow()
+                        db.commit()
+                        return f"ToolJob {job_id} failed: Tool not found"
+
+            # Build command with sanitized inputs
+            safe_sources = sanitize_input(job.sources or "crtsh,rapiddns,duckduckgo,waybackarchive,subdomaincenter")
+            safe_mode = sanitize_input(job.mode or "enum")  # Default to enum mode for amass
+            safe_target_flag = sanitize_input(job.target_flag or "-d")  # Default to -d for enum
+            
+            # Default args for specific tools
+            # safe_args is already defined above, this block was for specific defaults
+            if job.tool_name == "masscan" and not safe_args:
+                safe_args = "-p1-10000"  # Default ports for masscan
+            
+            cmd = []
+            for part in template:
+                if part == "{target}":
+                    cmd.append(safe_target)
+                elif part == "{args}":
                     if safe_args:
-                         # This case is tricky if args are in middle of string, but our current tools don't do that
-                         p = p.replace("{args}", safe_args)
-                         cmd.extend(shlex.split(p))
-                    else:
-                         p = p.replace("{args}", "")
-                         if p: cmd.append(p)
+                        cmd.extend(shlex.split(safe_args))
+                elif part == "{sources}":
+                    cmd.append(safe_sources)
+                elif part == "{mode}":
+                    cmd.append(safe_mode)
+                elif part == "{target_flag}":
+                    cmd.append(safe_target_flag)
                 else:
-                    cmd.append(p)
+                    # Handle cases where placeholders are part of a string (less common in our current TOOL_COMMANDS but safer)
+                    p = part.replace("{target}", safe_target).replace("{sources}", safe_sources).replace("{mode}", safe_mode).replace("{target_flag}", safe_target_flag)
+                    if "{args}" in p:
+                        if safe_args:
+                             # This case is tricky if args are in middle of string, but our current tools don't do that
+                             p = p.replace("{args}", safe_args)
+                             cmd.extend(shlex.split(p))
+                        else:
+                             p = p.replace("{args}", "")
+                             if p: cmd.append(p)
+                    else:
+                        cmd.append(p)
 
-        # Show the command in output
-        command_str = ' '.join(cmd)
-        output = f"[COMMAND] {command_str}\n\n"
+            # Show the command in output
+            command_str = ' '.join(cmd)
+            output = f"[COMMAND] {command_str}\n\n"
 
-        # Setup specific tool environment before execution
-        if job.tool_name == "ghunt" and os.path.exists("/app/ghunt_credentials.json"):
-            import shutil
-            for d in ["~/.ghunt", "~/.malfrats/ghunt"]:
-                ghunt_dir = os.path.expanduser(d)
-                os.makedirs(ghunt_dir, exist_ok=True)
-                # Copy OAuth credentials file
-                shutil.copy("/app/ghunt_credentials.json", os.path.join(ghunt_dir, "credentials.json"))
-                # Generate session from OAuth token if available
-                setup_ghunt_session(ghunt_dir)
+            # Setup specific tool environment before execution
+            if job.tool_name == "ghunt" and os.path.exists("/app/ghunt_credentials.json"):
+                import shutil
+                for d in ["~/.ghunt", "~/.malfrats/ghunt"]:
+                    ghunt_dir = os.path.expanduser(d)
+                    os.makedirs(ghunt_dir, exist_ok=True)
+                    # Copy OAuth credentials file
+                    shutil.copy("/app/ghunt_credentials.json", os.path.join(ghunt_dir, "credentials.json"))
+                    # Generate session from OAuth token if available
+                    setup_ghunt_session(ghunt_dir)
 
-        # Run gospider with form analysis
-        if job.tool_name == "gospider":
-            output += run_gospider_with_form_analysis(safe_target, timeout)
-        else:
-            # Security: Use shell=False to prevent shell injection
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,  # Dynamic timeout based on tool type
-                shell=False,  # SECURITY: Prevent shell injection
+            # Run gospider with form analysis
+            if job.tool_name == "gospider":
+                output += run_gospider_with_form_analysis(safe_target, timeout)
+            else:
+                # Security: Use shell=False to prevent shell injection
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,  # Dynamic timeout based on tool type
+                    shell=False,  # SECURITY: Prevent shell injection
+                )
+                output += result.stdout or ""
+                if result.stderr:
+                    output += "\n--- STDERR ---\n" + result.stderr
+            
+            job.status = "completed" # Set status to completed if no exception occurred
+
+        except SoftTimeLimitExceeded:
+            output += "\n[ERROR] Task exceeded maximum execution time and was terminated."
+            job.status = "failed"
+        except subprocess.TimeoutExpired:
+            output += f"\n[ERROR] Tool timed out after {timeout} seconds."
+            job.status = "failed"
+        except Exception as e:
+            output += f"\n[ERROR] {str(e)}"
+            job.status = "failed"
+        
+        # Strip ANSI escape codes
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        output = ansi_escape.sub('', output)
+
+        # Calculate execution time
+        execution_time = time.time() - start_time
+
+        # Generate summary of output
+        def generate_summary(output_text: str) -> str:
+            if not output_text:
+                return "No output"
+            lines = output_text.strip().split('\n')
+            # Take first 10 lines for summary
+            summary_lines = lines[:10]
+            summary = '\n'.join(summary_lines)
+            if len(lines) > 10:
+                summary += f"\n... and {len(lines) - 10} more lines"
+            return summary
+
+        job.output = output
+        job.summary = generate_summary(output)
+        job.execution_time = execution_time
+        job.completed_at = datetime.utcnow()
+        db.commit()
+
+        # Cache result in Redis (TTL 1 hour)
+        _redis.setex(f"tool:result:{job_id}", 3600, output)
+
+        return f"ToolJob {job_id} finished with status: {job.status}"
+    finally:
+        db.close()
+
+
+@shared_task(name="app.tasks.run_automation_task", soft_time_limit=15000, time_limit=16000)
+def run_automation_task(master_job_id: int):
+    """
+    Orchestrator for the Web Fuzzing Automation Flow.
+    Runs tools in sequence: WhatWeb -> Gospider -> (LinkFinder, SecretFinder) & (Feroxbuster -> ffuf -> PyMeta)
+    """
+    db = SessionLocal()
+    try:
+        master_job = db.query(ToolJob).filter(ToolJob.id == master_job_id).first()
+        if not master_job:
+            return "Master Job not found"
+
+        target = master_job.target
+        master_job.status = "running"
+        master_job.output = f"[*] Starting Automation Flow for {target}\n"
+        db.commit()
+
+        steps = [
+            {"name": "WhatWeb", "tool": "whatweb", "args": "-a 3 -v"},
+            {"name": "Gospider", "tool": "gospider", "args": ""},
+            {"name": "SecretFinder/LinkFinder", "tool": "secretfinder", "args": ""},
+            {"name": "Feroxbuster", "tool": "feroxbuster", "args": ""},
+            {"name": "ffuf (param fuzz)", "tool": "ffuf", "args": "-u https://TARGET/?FUZZ=value -w /opt/SecLists/Discovery/Web-Content/burp-parameter-names.txt -fc 404"},
+            {"name": "PyMeta", "tool": "pymeta", "args": ""}
+        ]
+
+        total_steps = len(steps)
+        start_time = time.time()
+
+        for i, step in enumerate(steps):
+            step_num = i + 1
+            master_job.output += f"\n[+] Step {step_num}/{total_steps}: Initializing {step['name']}...\n"
+            master_job.summary = f"Step {step_num}/{total_steps}: Running {step['name']}"
+            db.commit()
+
+            # Create a separate job for this tool so it shows up in the UI
+            tool_args = step['args'].replace("TARGET", target)
+            sub_job = ToolJob(
+                tool_name=step['tool'],
+                target=target,
+                args=tool_args,
+                status="pending"
             )
-            output += result.stdout or ""
-            if result.stderr:
-                output += "\n--- STDERR ---\n" + result.stderr
+            db.add(sub_job)
+            db.commit()
+            db.refresh(sub_job)
 
-    except SoftTimeLimitExceeded:
-        output = "[ERROR] Task exceeded maximum execution time and was terminated."
-        job.status = "failed"
-    except subprocess.TimeoutExpired:
-        output = f"[ERROR] Tool timed out after {timeout} seconds."
-        job.status = "failed"
+            master_job.output += f"[*] Job #{sub_job.id} created for {step['name']}\n"
+            db.commit()
+
+            # Run the tool task synchronously (we are already in a worker)
+            # We import and call it to avoid circular dependency or Celery overhead if possible,
+            # but run_tool_task is already in this file.
+            try:
+                run_tool_task(sub_job.id)
+                # Refresh from DB to get output
+                db.refresh(sub_job)
+                if sub_job.status == "completed":
+                    master_job.output += f"[SUCCESS] {step['name']} completed.\n"
+                else:
+                    master_job.output += f"[WARNING] {step['name']} finished with status: {sub_job.status}\n"
+            except Exception as e:
+                master_job.output += f"[ERROR] Step {step['name']} failed: {str(e)}\n"
+
+            db.commit()
+
+        master_job.status = "completed"
+        master_job.output += f"\n\n[DONE] Automation flow completed in {time.time() - start_time:.2f}s\n"
+        master_job.summary = "Automation flow completed successfully"
+        master_job.completed_at = datetime.utcnow()
+        master_job.execution_time = time.time() - start_time
+        db.commit()
     except Exception as e:
-        output = f"[ERROR] {str(e)}"
-        job.status = "failed"
-    else:
-        job.status = "completed"
-
-    # Strip ANSI escape codes
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    output = ansi_escape.sub('', output)
-
-    # Calculate execution time
-    execution_time = time.time() - start_time if 'start_time' in locals() else 0.0
-
-    # Generate summary of output
-    def generate_summary(output_text: str) -> str:
-        if not output_text:
-            return "No output"
-        lines = output_text.strip().split('\n')
-        # Take first 10 lines for summary
-        summary_lines = lines[:10]
-        summary = '\n'.join(summary_lines)
-        if len(lines) > 10:
-            summary += f"\n... and {len(lines) - 10} more lines"
-        return summary
-
-    job.output = output
-    job.summary = generate_summary(output)
-    job.execution_time = execution_time
-    job.completed_at = datetime.utcnow()
-    db.commit()
-    db.close()
-
-    # Cache result in Redis (TTL 1 hour)
-    _redis.setex(f"tool:result:{job_id}", 3600, output)
-
-    return f"ToolJob {job_id} finished with status: {job.status}"
-
+        if 'master_job' in locals() and master_job:
+            master_job.status = "failed"
+            master_job.output += f"\n[FATAL ERROR] Automation interrupted: {str(e)}\n"
+            master_job.summary = f"Automation failed"
+            master_job.completed_at = datetime.utcnow()
+            db.commit()
+    finally:
+        db.close()
+    return f"Automation {master_job_id} completed"

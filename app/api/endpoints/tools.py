@@ -112,6 +112,28 @@ def run_tool(
     return ToolJobResponse.from_orm(job)
 
 
+@router.post("/automation/web-fuzzing", response_model=ToolJobResponse)
+def run_web_fuzzing_automation(
+    req: ToolRunRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    job = ToolJob(
+        tool_name="automation_web_fuzzing",
+        target=req.target,
+        args="Automated workflow",
+        status="pending"
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    from app.tasks import run_automation_task
+    run_automation_task.delay(job.id)
+    
+    return ToolJobResponse.from_orm(job)
+
+
 @router.get("/{job_id}", response_model=ToolJobResponse)
 def get_job(
     job_id: int,

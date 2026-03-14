@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libffi-dev \
     pkg-config \
+    libimage-exiftool-perl \
     git curl wget nmap unzip \
     ca-certificates \
     golang \
@@ -56,7 +57,9 @@ RUN go install github.com/alpkeskin/mosint/v3/cmd/mosint@latest && \
 # ---------------------------
 # Install PyMeta
 # ---------------------------
-RUN pip install pymeta
+RUN git clone https://github.com/m8r0wn/pymeta.git /opt/pymeta && \
+    cd /opt/pymeta && \
+    pip3 install .
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
@@ -136,6 +139,20 @@ RUN go install github.com/OJ/gobuster/v3@latest && \
     go install github.com/jaeles-project/gospider@latest && \
     mv /root/go/bin/gobuster /usr/local/bin/gobuster && \
     mv /root/go/bin/gospider /usr/local/bin/gospider
+
+
+# Install Rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# ---------------------------
+# Install feroxbuster
+# ---------------------------
+
+RUN git clone https://github.com/epi052/feroxbuster.git /opt/feroxbuster && \
+    cd /opt/feroxbuster && \
+    cargo build --release && \
+    cp target/release/feroxbuster /usr/local/bin/feroxbuster
 
 # ---------------------------
 # Install SecLists

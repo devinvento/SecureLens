@@ -25,6 +25,42 @@
     .tool-card.feroxbuster   { border-top-color: #20c997; }
     .tool-card.gospider      { border-top-color: #405189; }
     .tool-card.pymeta        { border-top-color: #6f42c1; }
+    .tool-card.automation    { border-top: 3px solid #ff4b5c; }
+
+    .automation-flow-viz {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 11px;
+    }
+    .flow-step {
+        text-align: center;
+        flex: 1;
+        position: relative;
+    }
+    .flow-step:not(:last-child)::after {
+        content: '\ea6e';
+        font-family: 'remixicon';
+        position: absolute;
+        top: 50%;
+        right: -10px;
+        transform: translateY(-50%);
+        color: #adb5bd;
+    }
+    .flow-step i {
+        display: block;
+        font-size: 18px;
+        margin-bottom: 4px;
+        color: #405189;
+    }
+    .flow-step span {
+        font-weight: 600;
+        display: block;
+    }
 
     .output-block {
         background: #0d1117;
@@ -137,6 +173,47 @@
 <div class="category-header">
     <h3><i class="ri-search-eye-line me-2"></i>Web Fuzzing & Scanning</h3>
     <p>Directory brute-forcing, web scanning, and secret discovery</p>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card tool-card automation mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar-sm me-3 flex-shrink-0">
+                        <span class="avatar-title bg-soft-danger text-danger rounded-circle fs-24">
+                            <i class="ri-rocket-2-line"></i>
+                        </span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="mb-1 fw-bold">Web Fuzzing Automation Flow</h5>
+                        <p class="text-muted mb-0">Run a comprehensive security pipeline sequentially and see the results for each step.</p>
+                    </div>
+                </div>
+
+                <div class="automation-flow-viz">
+                    <div class="flow-step"><i class="ri-earth-fill"></i><span>WhatWeb</span></div>
+                    <div class="flow-step"><i class="ri-spider-line"></i><span>Gospider</span></div>
+                    <div class="flow-step"><i class="ri-key-2-line"></i><span>Secrets</span></div>
+                    <div class="flow-step"><i class="ri-broadcast-line"></i><span>Ferox</span></div>
+                    <div class="flow-step"><i class="ri-search-eye-line"></i><span>ffuf</span></div>
+                    <div class="flow-step"><i class="ri-file-info-line"></i><span>PyMeta</span></div>
+                </div>
+
+                <div class="row align-items-end g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-medium mb-1">Target URL/Domain</label>
+                        <input type="text" id="automationTarget" class="form-control target-input" placeholder="https://example.com" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-danger w-100" id="btnAutomation" onclick="runAutomation()">
+                            <i class="ri-play-circle-line me-1"></i> Start Full Automation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row">
@@ -398,7 +475,7 @@ function downloadOutput() {
         if (!checkAuth()) return;
         loadJobs();
         loadTargetFromSession();
-        pollTimer = setInterval(loadJobs, 4000);
+        pollTimer = setInterval(loadJobs, 10000);
     });
 
     function loadTargetFromSession() {
@@ -477,6 +554,34 @@ function downloadOutput() {
         }
     }
 
+    async function runAutomation() {
+        const target = document.getElementById('automationTarget').value.trim();
+        const btn = document.getElementById('btnAutomation');
+
+        if (!target) {
+            Swal.fire({ icon: "warning", title: "Target required", text: "Please enter a target for automation.", timer: 2000, showConfirmButton: false });
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Queuing…`;
+
+        const result = await postAPI("/api/tools/automation/web-fuzzing", { tool_name: "automation", target }, "Starting Automation Flow...");
+
+        btn.disabled = false;
+        btn.innerHTML = `<i class="ri-play-circle-line me-1"></i> Start Full Automation`;
+
+        if (result) {
+            Swal.fire({ 
+                icon: "success", 
+                title: "Automation Started!", 
+                text: `Master job #${result.id} created. Individual tools will be triggered in sequence.`, 
+                confirmButtonText: "View Progress"
+            });
+            loadJobs();
+        }
+    }
+
     async function loadJobs() {
         const jobs = await fetchAPI("/api/tools/");
         if (!jobs) return;
@@ -490,7 +595,7 @@ function downloadOutput() {
         const statusColor = { pending: "secondary", running: "primary", completed: "success", failed: "danger" };
         const statusIcon  = { pending: "ri-time-line", running: "ri-loader-4-line spin", completed: "ri-check-line", failed: "ri-close-line" };
 
-        const toolIds = ['ffuf', 'whatweb', 'secretfinder', 'gobuster', 'feroxbuster', 'gospider', 'pymeta'];
+        const toolIds = ['ffuf', 'whatweb', 'secretfinder', 'gobuster', 'feroxbuster', 'gospider', 'pymeta', 'automation_web_fuzzing'];
         
         const filteredJobs = jobs.filter(j => toolIds.includes(j.tool_name));
 
@@ -519,7 +624,7 @@ function downloadOutput() {
                                     </span>
                                 </td>
                                 <td><small>${new Date(j.created_at).toLocaleString()}</small></td>
-                                <td><small>${j.execution_time ? j.execution_time.toFixed(2) + 's' : '—'}</small></td>
+                                <td><small>${formatExecutionTime(j.execution_time)}</small></td>
                                 <td>
                                     <div class="d-flex gap-1">
                                         ${j.status === 'completed' || j.status === 'failed'

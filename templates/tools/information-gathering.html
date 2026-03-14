@@ -387,7 +387,7 @@ function downloadOutput() {
             }
         }
         
-        pollTimer = setInterval(loadJobs, 4000);
+        pollTimer = setInterval(loadJobs, 10000);
     });
 
     function loadTargetFromSession() {
@@ -504,7 +504,7 @@ function downloadOutput() {
                                     </span>
                                 </td>
                                 <td><small>${new Date(j.created_at).toLocaleString()}</small></td>
-                                <td><small>${j.execution_time ? j.execution_time.toFixed(2) + 's' : '—'}</small></td>
+                                <td><small>${formatExecutionTime(j.execution_time)}</small></td>
                                 <td>
                                     <div class="d-flex gap-1">
                                         ${j.status === 'completed' || j.status === 'failed'

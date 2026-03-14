@@ -210,3 +210,21 @@ async function deleteAPI(endpoint, loadingText = null) {
     return await res.json();
 }
 
+function formatExecutionTime(seconds) {
+    if (seconds === null || seconds === undefined || seconds === 0) {
+        return "0s";
+    }
+    
+    const totalSeconds = Math.floor(seconds);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    
+    let parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+    
+    return parts.join(" ");
+}
+
