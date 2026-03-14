@@ -519,7 +519,7 @@ def run_tool_task(job_id: int):
             "nmap": 300,           # 5 minutes
             "ffuf": 20000,           # 5 minutes
             "finalrecon": 300,     # 5 minutes
-            "secretfinder": 300,   # 5 minutes
+            "secretfinder": 3000,   # 50 minutes
             "pymeta": 300,         # 5 minutes
             "mosint": 300,         # 5 minutes
             "ghunt": 300,          # 5 minutes
@@ -672,7 +672,7 @@ def run_tool_task(job_id: int):
 def run_automation_task(master_job_id: int):
     """
     Orchestrator for the Web Fuzzing Automation Flow.
-    Runs tools in sequence: WhatWeb -> Gospider -> (LinkFinder, SecretFinder) & (Feroxbuster -> ffuf -> PyMeta)
+    Runs tools in parallel for maximum speed.
     """
     db = SessionLocal()
     try:
@@ -682,28 +682,25 @@ def run_automation_task(master_job_id: int):
 
         target = master_job.target
         master_job.status = "running"
-        master_job.output = f"[*] Starting Automation Flow for {target}\n"
+        master_job.output = f"[*] Starting Parallel Automation Flow for {target}\n"
         db.commit()
 
         steps = [
-            {"name": "WhatWeb", "tool": "whatweb", "args": "-a 3 -v"},
-            {"name": "Gospider", "tool": "gospider", "args": ""},
+            {"name": "WhatWeb", "tool": "whatweb", "args": "-a 3 -v --color=never"},
+            {"name": "Gospider", "tool": "gospider", "args": "-d 2 --quiet"},
             {"name": "SecretFinder/LinkFinder", "tool": "secretfinder", "args": ""},
-            {"name": "Feroxbuster", "tool": "feroxbuster", "args": ""},
+            {"name": "Feroxbuster", "tool": "feroxbuster", "args": " -w /opt/SecLists/Discovery/Web-Content/common.txt -t 40 -k --silent -s 200"},
             {"name": "ffuf (param fuzz)", "tool": "ffuf", "args": "-u https://TARGET/?FUZZ=value -w /opt/SecLists/Discovery/Web-Content/burp-parameter-names.txt -fc 404"},
-            {"name": "PyMeta", "tool": "pymeta", "args": ""}
+            {"name": "PyMeta", "tool": "pymeta", "args": "-se bing --download -l 20"}
         ]
 
         total_steps = len(steps)
         start_time = time.time()
+        sub_job_ids = []
 
-        for i, step in enumerate(steps):
-            step_num = i + 1
-            master_job.output += f"\n[+] Step {step_num}/{total_steps}: Initializing {step['name']}...\n"
-            master_job.summary = f"Step {step_num}/{total_steps}: Running {step['name']}"
-            db.commit()
-
-            # Create a separate job for this tool so it shows up in the UI
+        # Create all jobs first
+        master_job.output += f"[*] Initializing {total_steps} scanning steps...\n"
+        for step in steps:
             tool_args = step['args'].replace("TARGET", target)
             sub_job = ToolJob(
                 tool_name=step['tool'],
@@ -714,28 +711,56 @@ def run_automation_task(master_job_id: int):
             db.add(sub_job)
             db.commit()
             db.refresh(sub_job)
+            sub_job_ids.append(sub_job.id)
+            master_job.output += f"[+] Created Job #{sub_job.id} for {step['name']}\n"
+        
+        db.commit()
 
-            master_job.output += f"[*] Job #{sub_job.id} created for {step['name']}\n"
-            db.commit()
+        # Trigger all jobs in parallel
+        master_job.output += "\n[*] Launching all tools in parallel...\n"
+        for jid in sub_job_ids:
+            run_tool_task.delay(jid)
+        
+        db.commit()
 
-            # Run the tool task synchronously (we are already in a worker)
-            # We import and call it to avoid circular dependency or Celery overhead if possible,
-            # but run_tool_task is already in this file.
-            try:
-                run_tool_task(sub_job.id)
-                # Refresh from DB to get output
-                db.refresh(sub_job)
-                if sub_job.status == "completed":
-                    master_job.output += f"[SUCCESS] {step['name']} completed.\n"
+        # Monitoring loop
+        finished_jobs = set()
+        last_update_time = time.time()
+        
+        while len(finished_jobs) < total_steps:
+            # Check timeout (master task limit)
+            if time.time() - start_time > 14000: # Slightly less than soft limit
+                 master_job.output += "\n[!] Automation timeout reached. Some tasks may still be running.\n"
+                 break
+
+            time.sleep(5)
+            
+            # Refresh statuses
+            current_status_summary = []
+            for jid in sub_job_ids:
+                if jid in finished_jobs:
+                    continue
+                
+                sj = db.query(ToolJob).filter(ToolJob.id == jid).first()
+                if not sj: continue
+                
+                if sj.status in ["completed", "failed"]:
+                    finished_jobs.add(jid)
+                    master_job.output += f"\n[FINISH] Job #{jid} ({sj.tool_name}) finished with status: {sj.status}\n"
                 else:
-                    master_job.output += f"[WARNING] {step['name']} finished with status: {sub_job.status}\n"
-            except Exception as e:
-                master_job.output += f"[ERROR] Step {step['name']} failed: {str(e)}\n"
-
+                    current_status_summary.append(f"#{jid} ({sj.tool_name}): {sj.status}")
+            
+            # Periodically update summary
+            if time.time() - last_update_time > 15:
+                master_job.summary = f"Progress: {len(finished_jobs)}/{total_steps} steps completed"
+                if current_status_summary:
+                    master_job.output += f"[*] Still running: {', '.join(current_status_summary[:3])}...\n"
+                last_update_time = time.time()
+            
             db.commit()
 
         master_job.status = "completed"
-        master_job.output += f"\n\n[DONE] Automation flow completed in {time.time() - start_time:.2f}s\n"
+        master_job.output += f"\n\n[DONE] Parallel Automation flow completed in {time.time() - start_time:.2f}s\n"
         master_job.summary = "Automation flow completed successfully"
         master_job.completed_at = datetime.utcnow()
         master_job.execution_time = time.time() - start_time
@@ -744,7 +769,7 @@ def run_automation_task(master_job_id: int):
         if 'master_job' in locals() and master_job:
             master_job.status = "failed"
             master_job.output += f"\n[FATAL ERROR] Automation interrupted: {str(e)}\n"
-            master_job.summary = f"Automation failed"
+            master_job.summary = "Automation failed"
             master_job.completed_at = datetime.utcnow()
             db.commit()
     finally:
