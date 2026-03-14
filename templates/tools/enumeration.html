@@ -473,7 +473,7 @@ function downloadOutput() {
                 <table class="table table-sm table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>#</th><th>Tool</th><th>Target</th><th>Status</th><th>Started</th><th>Action</th>
+                            <th>#</th><th>Tool</th><th>Target</th><th>Status</th><th>Started</th><th>Time</th><th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -488,10 +488,12 @@ function downloadOutput() {
                                     </span>
                                 </td>
                                 <td><small>${new Date(j.created_at).toLocaleString()}</small></td>
+                                <td><small>${j.execution_time ? j.execution_time.toFixed(2) + 's' : '—'}</small></td>
                                 <td>
                                     <div class="d-flex gap-1">
                                         ${j.status === 'completed' || j.status === 'failed'
-                                            ? `<button class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="showOutput(${j.id}, '${j.tool_name}')"><i class="ri-eye-line"></i> View</button>`
+                                            ? `<button class="btn btn-xs btn-outline-secondary py-0 px-2" onclick="showOutput(${j.id}, '${j.tool_name}')"><i class="ri-eye-line"></i> View</button>
+                                               <button class="btn btn-xs btn-outline-info py-0 px-2" onclick="showSummary(${j.id}, '${j.tool_name}')"><i class="ri-file-list-3-line"></i> Summary</button>`
                                             : `<span class="text-muted small">—</span>`}
                                         <button class="btn btn-xs btn-outline-danger py-0 px-2" onclick="deleteJob(${j.id})"><i class="ri-delete-bin-line"></i> Delete</button>
                                     </div>
@@ -511,6 +513,17 @@ function downloadOutput() {
 
         const job = await fetchAPI(`/api/tools/${jobId}`);
         document.getElementById("outputModalBody").textContent = job?.output || "(no output)";
+    }
+
+    async function showSummary(jobId, toolName) {
+        document.getElementById("outputModalTitle").textContent = `${toolName} — Job #${jobId} (Summary)`;
+        document.getElementById("outputModalBody").textContent  = "Loading...";
+        const modal = new bootstrap.Modal(document.getElementById("outputModal"));
+        modal.show();
+
+        const job = await fetchAPI(`/api/tools/${jobId}`);
+        const summary = job?.summary || "(no summary available)";
+        document.getElementById("outputModalBody").textContent = summary;
     }
 
     async function deleteJob(jobId) {

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float
 from sqlalchemy.sql import func
 from app.db.session import Base
 
@@ -14,5 +14,7 @@ class ToolJob(Base):
     target_flag = Column(String, default="")  # For amass: -d for enum, -org for intel
     status = Column(String, default="pending")  # pending, running, completed, failed
     output = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)  # Summarized output
+    execution_time = Column(Float, nullable=True)  # Execution time in seconds
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)

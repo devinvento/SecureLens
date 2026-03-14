@@ -1,6 +1,8 @@
 import re
 import shlex
 import base64
+import requests
+from bs4 import BeautifulSoup
 from celery import shared_task
 from app.core.helpers import check_http_protocol
 from celery.exceptions import SoftTimeLimitExceeded
@@ -9,6 +11,7 @@ from app.models.scan import Scan
 from app.models.target import Target
 from app.models.vulnerability import Vulnerability
 from app.models.tool_job import ToolJob
+from app.models.package_todo import PackageTodo
 import time, subprocess, redis, asyncio
 from datetime import datetime
 import random
@@ -271,6 +274,154 @@ def run_scan_task(scan_id: int):
     return f"Scan {scan_id} completed successfully"
 
 
+def run_gospider_with_form_analysis(target: str, timeout: int = 300) -> str:
+    """
+    Run gospider to crawl a target and analyze forms for interesting parameters.
+    
+    This function:
+    1. Runs gospider to crawl the target site
+    2. Extracts forms from discovered URLs
+    3. Identifies interesting parameters (cmd, exec, url, redirect, file, path, upload)
+    4. Saves results to package_todo table
+    
+    Returns:
+        str: Output message
+    """
+    import requests
+    from bs4 import BeautifulSoup
+    import subprocess
+    import json
+    from urllib.parse import urljoin
+    
+    output = ""
+    interesting_params = ["cmd", "exec", "url", "redirect", "file", "path", "upload"]
+    
+    output += "[*] Crawling site using gospider...\n"
+    
+    # Run gospider to discover URLs
+    result = subprocess.run(
+        ["gospider", "-s", target, "-d", "2", "--quiet"],
+        capture_output=True,
+        text=True,
+        timeout=timeout
+    )
+    
+    urls = set()
+    
+    for line in result.stdout.splitlines():
+        if line.startswith("http"):
+            urls.add(line.strip())
+    
+    output += f"[+] Found {len(urls)} URLs\n"
+    
+    forms_data = []
+    seen_forms = set()
+    
+    for url in urls:
+        try:
+            r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            soup = BeautifulSoup(r.text, "html.parser")
+            
+            forms = soup.find_all("form")
+            
+            for form in forms:
+                action = form.get("action")
+                method = form.get("method", "GET").upper()
+                
+                if action:
+                    action = urljoin(url, action)
+                
+                form_id = f"{action}-{method}"
+                
+                if form_id in seen_forms:
+                    continue
+                
+                seen_forms.add(form_id)
+                
+                fields = []
+                has_password = False
+                has_file = False
+                csrf_token = False
+                interesting_fields = []
+                
+                for field in form.find_all(["input", "textarea", "select"]):
+                    name = field.get("name")
+                    ftype = field.get("type", "text")
+                    
+                    if ftype == "password":
+                        has_password = True
+                    
+                    if ftype == "file":
+                        has_file = True
+                    
+                    if name and "csrf" in name.lower():
+                        csrf_token = True
+                    
+                    # Check for interesting parameters
+                    if name:
+                        name_lower = name.lower()
+                        for interesting in interesting_params:
+                            if interesting in name_lower:
+                                interesting_fields.append({
+                                    "name": name,
+                                    "type": interesting,
+                                    "match": interesting
+                                })
+                                break
+                    
+                    fields.append({
+                        "name": name,
+                        "type": ftype
+                    })
+                
+                form_type = "normal"
+                
+                if has_password:
+                    form_type = "login"
+                
+                if has_file:
+                    form_type = "file_upload"
+                
+                forms_data.append({
+                    "page": url,
+                    "action": action,
+                    "method": method,
+                    "type": form_type,
+                    "csrf_token": csrf_token,
+                    "interesting_params": interesting_fields,
+                    "fields": fields
+                })
+        
+        except Exception as e:
+            pass
+    
+    output += f"\n===== FORM ANALYSIS COMPLETE =====\n\n"
+    
+    # Store form data in package_todo table
+    form_report_json = json.dumps(forms_data, indent=4)
+    output += f"[+] Form analysis complete, found {len(forms_data)} forms\n"
+    
+    # Create PackageTodo entry
+    db = SessionLocal()
+    try:
+        package_todo = PackageTodo(
+            target=target,
+            package_name="gospider",
+            section="web-fuzzing",
+            data=form_report_json,
+            status="completed"
+        )
+        db.add(package_todo)
+        db.commit()
+        output += f"[+] Form data saved to package_todo (id: {package_todo.id})\n"
+    except Exception as e:
+        output += f"[-] Error saving to package_todo: {e}\n"
+    finally:
+        db.close()
+    
+    return output
+
+
 # ---------------------------------------------------------------
 # Tool command mappings
 # ---------------------------------------------------------------
@@ -308,7 +459,8 @@ TOOL_COMMANDS = {
     "mosint":       ["mosint", "-t", "{target}"],
     "ghunt":        ["python3", "/opt/ghunt/main.py", "email", "{target}"],
     "osmedeus":     ["osmedeus", "scan", "-t", "{target}"],
-    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"]
+    "whatweb":      ["whatweb", "{args}", "-a", "3", "-v", "--color=never", "{target}"],
+    "gospider":     ["gospider", "-s", "{target}", "-d", "2", "--quiet"],
 }
 
 
@@ -357,7 +509,7 @@ def run_tool_task(job_id: int):
         # For theHarvester, also check if args contains domain info
 
     # Special handling for ffuf - check http/https and use working protocol
-    if job.tool_name == "ffuf" or job.tool_name == "whatweb" or job.tool_name == "secretfinder":
+    if job.tool_name == "ffuf" or job.tool_name == "whatweb" or job.tool_name == "secretfinder" or job.tool_name == "gospider":
         safe_target = check_http_protocol(safe_target)
 
     # Set timeout based on tool type (some tools need more time)
@@ -373,12 +525,16 @@ def run_tool_task(job_id: int):
         "mosint": 300,         # 5 minutes
         "ghunt": 300,          # 5 minutes
         "whatweb": 300,        # 5 minutes
-        "gobuster": 3000,        # 5 minutes
+        "gobuster": 3000,      # 50 minutes
+        "gospider": 600,       # 10 minutes
     }
     timeout = tool_timeouts.get(job.tool_name, 300)
 
     job.status = "running"
     db.commit()
+
+    # Record start time for execution tracking
+    start_time = time.time()
 
     try:
         # Handle SoftTimeLimitExceeded from Celery
@@ -451,17 +607,21 @@ def run_tool_task(job_id: int):
                 # Generate session from OAuth token if available
                 setup_ghunt_session(ghunt_dir)
 
-        # Security: Use shell=False to prevent shell injection
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,  # Dynamic timeout based on tool type
-            shell=False,  # SECURITY: Prevent shell injection
-        )
-        output += result.stdout or ""
-        if result.stderr:
-            output += "\n--- STDERR ---\n" + result.stderr
+        # Run gospider with form analysis
+        if job.tool_name == "gospider":
+            output += run_gospider_with_form_analysis(safe_target, timeout)
+        else:
+            # Security: Use shell=False to prevent shell injection
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,  # Dynamic timeout based on tool type
+                shell=False,  # SECURITY: Prevent shell injection
+            )
+            output += result.stdout or ""
+            if result.stderr:
+                output += "\n--- STDERR ---\n" + result.stderr
 
     except SoftTimeLimitExceeded:
         output = "[ERROR] Task exceeded maximum execution time and was terminated."
@@ -479,7 +639,24 @@ def run_tool_task(job_id: int):
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     output = ansi_escape.sub('', output)
 
+    # Calculate execution time
+    execution_time = time.time() - start_time if 'start_time' in locals() else 0.0
+
+    # Generate summary of output
+    def generate_summary(output_text: str) -> str:
+        if not output_text:
+            return "No output"
+        lines = output_text.strip().split('\n')
+        # Take first 10 lines for summary
+        summary_lines = lines[:10]
+        summary = '\n'.join(summary_lines)
+        if len(lines) > 10:
+            summary += f"\n... and {len(lines) - 10} more lines"
+        return summary
+
     job.output = output
+    job.summary = generate_summary(output)
+    job.execution_time = execution_time
     job.completed_at = datetime.utcnow()
     db.commit()
     db.close()
@@ -556,6 +733,9 @@ def run_tool_task(job_id: int):
     job.status = "running"
     db.commit()
 
+    # Record start time for execution tracking
+    start_time = time.time()
+
     try:
         # Handle SoftTimeLimitExceeded from Celery
         template = TOOL_COMMANDS.get(job.tool_name)
@@ -627,17 +807,21 @@ def run_tool_task(job_id: int):
                 # Generate session from OAuth token if available
                 setup_ghunt_session(ghunt_dir)
 
-        # Security: Use shell=False to prevent shell injection
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,  # Dynamic timeout based on tool type
-            shell=False,  # SECURITY: Prevent shell injection
-        )
-        output += result.stdout or ""
-        if result.stderr:
-            output += "\n--- STDERR ---\n" + result.stderr
+        # Run gospider with form analysis
+        if job.tool_name == "gospider":
+            output += run_gospider_with_form_analysis(safe_target, timeout)
+        else:
+            # Security: Use shell=False to prevent shell injection
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,  # Dynamic timeout based on tool type
+                shell=False,  # SECURITY: Prevent shell injection
+            )
+            output += result.stdout or ""
+            if result.stderr:
+                output += "\n--- STDERR ---\n" + result.stderr
 
     except SoftTimeLimitExceeded:
         output = "[ERROR] Task exceeded maximum execution time and was terminated."
@@ -655,7 +839,24 @@ def run_tool_task(job_id: int):
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     output = ansi_escape.sub('', output)
 
+    # Calculate execution time
+    execution_time = time.time() - start_time if 'start_time' in locals() else 0.0
+
+    # Generate summary of output
+    def generate_summary(output_text: str) -> str:
+        if not output_text:
+            return "No output"
+        lines = output_text.strip().split('\n')
+        # Take first 10 lines for summary
+        summary_lines = lines[:10]
+        summary = '\n'.join(summary_lines)
+        if len(lines) > 10:
+            summary += f"\n... and {len(lines) - 10} more lines"
+        return summary
+
     job.output = output
+    job.summary = generate_summary(output)
+    job.execution_time = execution_time
     job.completed_at = datetime.utcnow()
     db.commit()
     db.close()

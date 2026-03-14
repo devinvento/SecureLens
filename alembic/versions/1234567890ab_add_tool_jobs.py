@@ -32,6 +32,8 @@ def upgrade() -> None:
         sa.Column('args', sa.String(), nullable=True),
         sa.Column('status', sa.String(), nullable=True),
         sa.Column('output', sa.Text(), nullable=True),
+        sa.Column('summary', sa.Text(), nullable=True),
+        sa.Column('execution_time', sa.Float(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
         sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint('id')

@@ -127,6 +127,16 @@ RUN go install github.com/OJ/gobuster/v3@latest && \
     mv /root/go/bin/gobuster /usr/local/bin/gobuster
 
 
+
+# ---------------------------
+# Install Gospider
+# ---------------------------
+
+RUN go install github.com/OJ/gobuster/v3@latest && \
+    go install github.com/jaeles-project/gospider@latest && \
+    mv /root/go/bin/gobuster /usr/local/bin/gobuster && \
+    mv /root/go/bin/gospider /usr/local/bin/gospider
+
 # ---------------------------
 # Install SecLists
 # ---------------------------

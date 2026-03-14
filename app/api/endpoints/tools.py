@@ -7,6 +7,7 @@ from typing import List, Optional
 from pydantic import BaseModel, validator
 from app.db.session import get_db
 from app.models.tool_job import ToolJob
+from app.models.package_todo import PackageTodo
 from app.tasks import run_tool_task, validate_target
 from app.api.deps import get_current_user
 from app.core.config import settings
@@ -45,6 +46,8 @@ class ToolJobResponse(BaseModel):
     target_flag: Optional[str]
     status: str
     output: Optional[str]
+    summary: Optional[str]
+    execution_time: Optional[float]
     created_at: str
     completed_at: Optional[str]
 
@@ -63,6 +66,8 @@ class ToolJobResponse(BaseModel):
             target_flag=obj.target_flag,
             status=obj.status,
             output=obj.output,
+            summary=obj.summary,
+            execution_time=obj.execution_time,
             created_at=str(obj.created_at),
             completed_at=str(obj.completed_at) if obj.completed_at else None,
         )
